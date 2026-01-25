@@ -1,20 +1,31 @@
-import { useState } from 'react';
-import type { State } from '@multiclaude/core';
 import { AgentList } from './components/AgentList';
 import { MessageFeed } from './components/MessageFeed';
 import { TaskHistory } from './components/TaskHistory';
+import { useMulticlaude, useDaemonStatus } from './hooks/useMulticlaude';
+import { useState, useEffect } from 'react';
 
 /**
  * Main dashboard application.
  *
- * This is a scaffold - the actual state management and data fetching
- * will need to be implemented based on how the dashboard is deployed
- * (e.g., Electron app with direct socket access, or web app with a backend proxy).
+ * Uses hooks from useMulticlaude to fetch and display daemon state.
+ * In development, mock data is displayed. In production, this would
+ * connect to a backend API or run in Electron with direct socket access.
  */
 function App() {
-  // Placeholder state - in a real app, this would come from StateReader
-  const [state] = useState<State | null>(null);
+  const { state, loading, error, refresh } = useMulticlaude();
+  const { connected, checking } = useDaemonStatus();
   const [currentRepo, setCurrentRepo] = useState<string | null>(null);
+
+  // Auto-select first repo when state loads
+  useEffect(() => {
+    if (state && !currentRepo) {
+      const repoNames = Object.keys(state.repos);
+      const firstRepo = repoNames[0];
+      if (firstRepo) {
+        setCurrentRepo(firstRepo);
+      }
+    }
+  }, [state, currentRepo]);
 
   const repos = state ? Object.keys(state.repos) : [];
 
@@ -48,14 +59,32 @@ function App() {
         <div className="mt-8">
           <h2 className="text-xs uppercase tracking-wider text-gray-400 mb-2">Status</h2>
           <div className="flex items-center gap-2 text-sm">
-            <span className="w-2 h-2 rounded-full bg-gray-500" />
-            <span className="text-gray-400">Daemon: Unknown</span>
+            <span
+              className={`w-2 h-2 rounded-full ${
+                checking ? 'bg-yellow-500 animate-pulse' : connected ? 'bg-green-500' : 'bg-red-500'
+              }`}
+            />
+            <span className="text-gray-400">
+              Daemon: {checking ? 'Checking...' : connected ? 'Connected' : 'Disconnected'}
+            </span>
           </div>
+          <button
+            onClick={refresh}
+            disabled={loading}
+            className="mt-2 text-xs text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </button>
         </div>
       </aside>
 
       {/* Main content */}
       <main className="flex-1 p-6">
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            <strong>Error:</strong> {error.message}
+          </div>
+        )}
         {!currentRepo ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-gray-500">
