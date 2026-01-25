@@ -1,27 +1,15 @@
 /**
- * Zod schemas for runtime validation of multiclaude state.
+ * Zod schemas for runtime validation of multiclaude state and API responses.
  *
- * These schemas can validate JSON data from ~/.multiclaude/state.json
- * and provide type-safe parsing with detailed error messages.
- *
- * The types exported from types.ts are manually kept in sync with these
- * schemas. Use the parse functions to validate unknown data at runtime.
+ * These schemas validate data read from state.json or received from the socket API,
+ * providing type-safe parsing with helpful error messages.
  */
 
 import { z } from 'zod';
-import type {
-  Agent,
-  Message,
-  Repository,
-  SocketResponse,
-  State,
-  TaskHistoryEntry,
-} from './types';
 
-// ============================================================================
-// Agent Type Schema
-// ============================================================================
-
+/**
+ * Agent type enum schema.
+ */
 export const AgentTypeSchema = z.enum([
   'supervisor',
   'worker',
@@ -32,39 +20,35 @@ export const AgentTypeSchema = z.enum([
   'generic-persistent',
 ]);
 
-// ============================================================================
-// Track Mode Schema
-// ============================================================================
-
+/**
+ * Track mode enum schema.
+ */
 export const TrackModeSchema = z.enum(['all', 'author', 'assigned']);
 
-// ============================================================================
-// Task Status Schema
-// ============================================================================
+/**
+ * Task status enum schema.
+ */
+export const TaskStatusSchema = z.enum(['open', 'merged', 'closed', 'no-pr', 'failed', 'unknown']);
 
-export const TaskStatusSchema = z.enum([
-  'open',
-  'merged',
-  'closed',
-  'no-pr',
-  'failed',
-  'unknown',
-]);
-
-// ============================================================================
-// Configuration Schemas
-// ============================================================================
-
+/**
+ * Merge queue configuration schema.
+ */
 export const MergeQueueConfigSchema = z.object({
   enabled: z.boolean(),
   track_mode: TrackModeSchema,
 });
 
+/**
+ * PR shepherd configuration schema.
+ */
 export const PRShepherdConfigSchema = z.object({
   enabled: z.boolean(),
   track_mode: TrackModeSchema,
 });
 
+/**
+ * Fork configuration schema.
+ */
 export const ForkConfigSchema = z.object({
   is_fork: z.boolean(),
   upstream_url: z.string().optional(),
@@ -73,16 +57,15 @@ export const ForkConfigSchema = z.object({
   force_fork_mode: z.boolean().optional(),
 });
 
-// ============================================================================
-// Task History Schema
-// ============================================================================
-
+/**
+ * Task history entry schema.
+ */
 export const TaskHistoryEntrySchema = z.object({
   name: z.string(),
   task: z.string(),
   branch: z.string(),
   pr_url: z.string().optional(),
-  pr_number: z.number().int().positive().optional(),
+  pr_number: z.number().optional(),
   status: TaskStatusSchema,
   summary: z.string().optional(),
   failure_reason: z.string().optional(),
@@ -90,16 +73,15 @@ export const TaskHistoryEntrySchema = z.object({
   completed_at: z.string().optional(),
 });
 
-// ============================================================================
-// Agent Schema
-// ============================================================================
-
+/**
+ * Agent schema.
+ */
 export const AgentSchema = z.object({
   type: AgentTypeSchema,
   worktree_path: z.string(),
   tmux_window: z.string(),
   session_id: z.string(),
-  pid: z.number().int().nonnegative(),
+  pid: z.number(),
   task: z.string().optional(),
   summary: z.string().optional(),
   failure_reason: z.string().optional(),
@@ -108,12 +90,11 @@ export const AgentSchema = z.object({
   ready_for_cleanup: z.boolean().optional(),
 });
 
-// ============================================================================
-// Repository Schema
-// ============================================================================
-
+/**
+ * Repository schema.
+ */
 export const RepositorySchema = z.object({
-  github_url: z.string().url(),
+  github_url: z.string(),
   tmux_session: z.string(),
   agents: z.record(z.string(), AgentSchema),
   task_history: z.array(TaskHistoryEntrySchema).optional(),
@@ -123,141 +104,86 @@ export const RepositorySchema = z.object({
   target_branch: z.string().optional(),
 });
 
-// ============================================================================
-// State Schema
-// ============================================================================
-
+/**
+ * State schema (root).
+ */
 export const StateSchema = z.object({
   repos: z.record(z.string(), RepositorySchema),
   current_repo: z.string().optional(),
 });
 
-// ============================================================================
-// Message Schema
-// ============================================================================
-
-export const MessageSchema = z.object({
-  id: z.string(),
-  from: z.string(),
-  to: z.string(),
-  content: z.string(),
-  timestamp: z.string(),
-  acknowledged: z.boolean().optional(),
-});
-
-// ============================================================================
-// Socket API Schemas
-// ============================================================================
-
-export const SocketRequestSchema = z.object({
-  command: z.string(),
-  args: z.record(z.string(), z.unknown()).optional(),
-});
-
+/**
+ * Socket response schema (generic).
+ */
 export const SocketResponseSchema = z.object({
   success: z.boolean(),
   data: z.unknown().optional(),
   error: z.string().optional(),
 });
 
-// ============================================================================
-// Parse Functions
-// ============================================================================
+/**
+ * Daemon status response schema.
+ */
+export const DaemonStatusSchema = z.object({
+  running: z.boolean(),
+  pid: z.number(),
+  repos: z.number(),
+  agents: z.number(),
+  socket_path: z.string(),
+});
 
 /**
- * Parse and validate a State object from unknown data.
- * Throws ZodError if validation fails.
+ * Parse and validate state data, throwing on invalid input.
  */
-export function parseState(data: unknown): State {
-  return StateSchema.parse(data) as State;
+export function parseState(data: unknown) {
+  return StateSchema.parse(data);
 }
 
 /**
- * Safely parse a State object, returning null if validation fails.
+ * Safely parse state data, returning null on invalid input.
  */
-export function safeParseState(data: unknown): State | null {
+export function safeParseState(data: unknown) {
   const result = StateSchema.safeParse(data);
-  return result.success ? (result.data as State) : null;
+  return result.success ? result.data : null;
 }
 
 /**
- * Parse and validate a Repository object from unknown data.
- * Throws ZodError if validation fails.
+ * Parse and validate a repository, throwing on invalid input.
  */
-export function parseRepository(data: unknown): Repository {
-  return RepositorySchema.parse(data) as Repository;
+export function parseRepository(data: unknown) {
+  return RepositorySchema.parse(data);
 }
 
 /**
- * Safely parse a Repository object, returning null if validation fails.
+ * Parse and validate an agent, throwing on invalid input.
  */
-export function safeParseRepository(data: unknown): Repository | null {
-  const result = RepositorySchema.safeParse(data);
-  return result.success ? (result.data as Repository) : null;
+export function parseAgent(data: unknown) {
+  return AgentSchema.parse(data);
 }
 
 /**
- * Parse and validate an Agent object from unknown data.
- * Throws ZodError if validation fails.
+ * Parse and validate a socket response, throwing on invalid input.
  */
-export function parseAgent(data: unknown): Agent {
-  return AgentSchema.parse(data) as Agent;
+export function parseSocketResponse(data: unknown) {
+  return SocketResponseSchema.parse(data);
 }
 
 /**
- * Safely parse an Agent object, returning null if validation fails.
+ * Parse and validate daemon status, throwing on invalid input.
  */
-export function safeParseAgent(data: unknown): Agent | null {
-  const result = AgentSchema.safeParse(data);
-  return result.success ? (result.data as Agent) : null;
+export function parseDaemonStatus(data: unknown) {
+  return DaemonStatusSchema.parse(data);
 }
 
-/**
- * Parse and validate a Message object from unknown data.
- * Throws ZodError if validation fails.
- */
-export function parseMessage(data: unknown): Message {
-  return MessageSchema.parse(data) as Message;
-}
-
-/**
- * Safely parse a Message object, returning null if validation fails.
- */
-export function safeParseMessage(data: unknown): Message | null {
-  const result = MessageSchema.safeParse(data);
-  return result.success ? (result.data as Message) : null;
-}
-
-/**
- * Parse and validate a TaskHistoryEntry object from unknown data.
- * Throws ZodError if validation fails.
- */
-export function parseTaskHistoryEntry(data: unknown): TaskHistoryEntry {
-  return TaskHistoryEntrySchema.parse(data) as TaskHistoryEntry;
-}
-
-/**
- * Safely parse a TaskHistoryEntry object, returning null if validation fails.
- */
-export function safeParseTaskHistoryEntry(
-  data: unknown
-): TaskHistoryEntry | null {
-  const result = TaskHistoryEntrySchema.safeParse(data);
-  return result.success ? (result.data as TaskHistoryEntry) : null;
-}
-
-/**
- * Parse and validate a SocketResponse object from unknown data.
- * Throws ZodError if validation fails.
- */
-export function parseSocketResponse(data: unknown): SocketResponse {
-  return SocketResponseSchema.parse(data) as SocketResponse;
-}
-
-/**
- * Safely parse a SocketResponse object, returning null if validation fails.
- */
-export function safeParseSocketResponse(data: unknown): SocketResponse | null {
-  const result = SocketResponseSchema.safeParse(data);
-  return result.success ? (result.data as SocketResponse) : null;
-}
+// Re-export inferred types for convenience
+export type AgentType = z.infer<typeof AgentTypeSchema>;
+export type TrackMode = z.infer<typeof TrackModeSchema>;
+export type TaskStatus = z.infer<typeof TaskStatusSchema>;
+export type MergeQueueConfig = z.infer<typeof MergeQueueConfigSchema>;
+export type PRShepherdConfig = z.infer<typeof PRShepherdConfigSchema>;
+export type ForkConfig = z.infer<typeof ForkConfigSchema>;
+export type TaskHistoryEntry = z.infer<typeof TaskHistoryEntrySchema>;
+export type Agent = z.infer<typeof AgentSchema>;
+export type Repository = z.infer<typeof RepositorySchema>;
+export type State = z.infer<typeof StateSchema>;
+export type DaemonStatus = z.infer<typeof DaemonStatusSchema>;

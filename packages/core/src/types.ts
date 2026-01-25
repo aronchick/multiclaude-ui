@@ -1,23 +1,18 @@
 /**
- * TypeScript types matching multiclaude's Go types from internal/state/state.go
+ * TypeScript types mirroring multiclaude/internal/state/state.go
  *
- * These types represent the daemon state structure that external tools can read
- * from ~/.multiclaude/state.json or interact with via the socket API.
+ * These types represent the daemon's state structure and are used
+ * for type-safe communication with the multiclaude daemon.
  */
 
-// ============================================================================
-// Agent Types
-// ============================================================================
-
 /**
- * AgentType represents the type of agent running in a repository.
- *
- * - supervisor: Main orchestrator for the repository
- * - worker: Executes specific tasks (transient)
+ * Agent types supported by multiclaude.
+ * - supervisor: Main orchestrator for a repository
+ * - worker: Executes specific tasks
  * - merge-queue: Monitors and merges approved PRs
  * - pr-shepherd: Monitors PRs in fork mode
  * - workspace: Interactive workspace agent
- * - review: Reviews a specific PR (transient)
+ * - review: Reviews a specific PR
  * - generic-persistent: Custom persistent agents
  */
 export type AgentType =
@@ -30,86 +25,46 @@ export type AgentType =
   | 'generic-persistent';
 
 /**
- * Persistent agent types that should be auto-restarted when dead.
- */
-export const PERSISTENT_AGENT_TYPES: readonly AgentType[] = [
-  'supervisor',
-  'merge-queue',
-  'pr-shepherd',
-  'workspace',
-  'generic-persistent',
-] as const;
-
-/**
- * Transient agent types that are not auto-restarted.
- */
-export const TRANSIENT_AGENT_TYPES: readonly AgentType[] = [
-  'worker',
-  'review',
-] as const;
-
-/**
- * Check if an agent type is persistent (should be auto-restarted).
- */
-export function isPersistentAgent(type: AgentType): boolean {
-  return (PERSISTENT_AGENT_TYPES as readonly string[]).includes(type);
-}
-
-// ============================================================================
-// Track Mode
-// ============================================================================
-
-/**
- * TrackMode defines which PRs the merge queue or PR shepherd should track.
- *
- * - all: Track all PRs (default for merge-queue)
- * - author: Only PRs where the multiclaude user is the author (default for pr-shepherd)
+ * Track modes for merge-queue and pr-shepherd agents.
+ * - all: Monitor all PRs in the repository
+ * - author: Only PRs where the multiclaude user is the author
  * - assigned: Only PRs where the multiclaude user is assigned
  */
 export type TrackMode = 'all' | 'author' | 'assigned';
 
-// ============================================================================
-// Configuration Types
-// ============================================================================
+/**
+ * Task status values.
+ * - open: PR created, not yet merged or closed
+ * - merged: PR was merged successfully
+ * - closed: PR was closed without merging
+ * - no-pr: Task completed but no PR was created
+ * - failed: Task failed (see failure_reason)
+ * - unknown: Status couldn't be determined
+ */
+export type TaskStatus = 'open' | 'merged' | 'closed' | 'no-pr' | 'failed' | 'unknown';
 
 /**
- * MergeQueueConfig holds configuration for the merge queue agent.
+ * Configuration for the merge-queue agent.
  */
 export interface MergeQueueConfig {
-  /** Whether the merge queue agent should run (default: true) */
+  /** Whether the merge queue agent should run */
   enabled: boolean;
-  /** Which PRs to track: "all", "author", or "assigned" (default: "all") */
+  /** Which PRs to track: "all", "author", or "assigned" */
   track_mode: TrackMode;
 }
 
 /**
- * Default merge queue configuration.
- */
-export const DEFAULT_MERGE_QUEUE_CONFIG: MergeQueueConfig = {
-  enabled: true,
-  track_mode: 'all',
-};
-
-/**
- * PRShepherdConfig holds configuration for the PR shepherd agent (used in fork mode).
+ * Configuration for the pr-shepherd agent (used in fork mode).
  */
 export interface PRShepherdConfig {
-  /** Whether the PR shepherd agent should run (default: true in fork mode) */
+  /** Whether the PR shepherd agent should run */
   enabled: boolean;
-  /** Which PRs to track: "all", "author", or "assigned" (default: "author") */
+  /** Which PRs to track: "all", "author", or "assigned" */
   track_mode: TrackMode;
 }
 
 /**
- * Default PR shepherd configuration.
- */
-export const DEFAULT_PR_SHEPHERD_CONFIG: PRShepherdConfig = {
-  enabled: true,
-  track_mode: 'author',
-};
-
-/**
- * ForkConfig holds fork-related configuration for a repository.
+ * Fork-related configuration for a repository.
  */
 export interface ForkConfig {
   /** True if the repository is detected as a fork */
@@ -124,47 +79,21 @@ export interface ForkConfig {
   force_fork_mode?: boolean;
 }
 
-// ============================================================================
-// Task Status
-// ============================================================================
-
 /**
- * TaskStatus represents the status of a completed task.
- *
- * - open: PR was created but not yet merged or closed
- * - merged: PR was merged successfully
- * - closed: PR was closed without merging
- * - no-pr: Task completed but no PR was created
- * - failed: Task failed (see failure_reason)
- * - unknown: Status couldn't be determined
- */
-export type TaskStatus =
-  | 'open'
-  | 'merged'
-  | 'closed'
-  | 'no-pr'
-  | 'failed'
-  | 'unknown';
-
-// ============================================================================
-// Task History
-// ============================================================================
-
-/**
- * TaskHistoryEntry represents a completed task in the repository's history.
+ * A completed task in the history.
  */
 export interface TaskHistoryEntry {
-  /** Worker name that executed the task */
+  /** Worker name */
   name: string;
   /** Task description */
   task: string;
-  /** Git branch used for the task */
+  /** Git branch */
   branch: string;
   /** Pull request URL if created */
   pr_url?: string;
   /** PR number for quick lookup */
   pr_number?: number;
-  /** Current status of the task */
+  /** Current status */
   status: TaskStatus;
   /** Brief summary of what was accomplished */
   summary?: string;
@@ -176,19 +105,15 @@ export interface TaskHistoryEntry {
   completed_at?: string;
 }
 
-// ============================================================================
-// Agent
-// ============================================================================
-
 /**
- * Agent represents an agent's state within a repository.
+ * An agent's state.
  */
 export interface Agent {
-  /** Type of agent */
+  /** Agent type */
   type: AgentType;
-  /** Path to the agent's git worktree */
+  /** Path to the git worktree */
   worktree_path: string;
-  /** Window index in the tmux session */
+  /** Tmux window identifier */
   tmux_window: string;
   /** Claude session ID */
   session_id: string;
@@ -204,23 +129,19 @@ export interface Agent {
   created_at: string;
   /** Last time the agent was nudged (ISO 8601) */
   last_nudge?: string;
-  /** Signals worker is ready for cleanup (workers only) */
+  /** Signals worker completion (workers only) */
   ready_for_cleanup?: boolean;
 }
 
-// ============================================================================
-// Repository
-// ============================================================================
-
 /**
- * Repository represents a tracked repository's state.
+ * A tracked repository's state.
  */
 export interface Repository {
-  /** GitHub URL of the repository */
+  /** GitHub URL */
   github_url: string;
-  /** Tmux session name (e.g., "mc-my-repo") */
+  /** Tmux session name */
   tmux_session: string;
-  /** Map of agent name to Agent state */
+  /** Map of agent name to agent state */
   agents: Record<string, Agent>;
   /** Completed task history */
   task_history?: TaskHistoryEntry[];
@@ -234,65 +155,79 @@ export interface Repository {
   target_branch?: string;
 }
 
-// ============================================================================
-// Root State
-// ============================================================================
-
 /**
- * State represents the entire daemon state.
- * This is the structure of ~/.multiclaude/state.json
+ * The entire daemon state.
  */
 export interface State {
-  /** Map of repository name to Repository state */
+  /** Map of repository name to repository state */
   repos: Record<string, Repository>;
   /** Current/default repository name */
   current_repo?: string;
 }
 
-// ============================================================================
-// Message Types (for inter-agent communication)
-// ============================================================================
-
 /**
- * Message represents an inter-agent message.
- */
-export interface Message {
-  /** Unique message ID */
-  id: string;
-  /** Sender agent name */
-  from: string;
-  /** Recipient agent name */
-  to: string;
-  /** Message content */
-  content: string;
-  /** When the message was sent (ISO 8601) */
-  timestamp: string;
-  /** Whether the message has been acknowledged */
-  acknowledged?: boolean;
-}
-
-// ============================================================================
-// Socket API Types
-// ============================================================================
-
-/**
- * Socket request to the daemon.
+ * Socket API request format.
  */
 export interface SocketRequest {
-  /** Command to execute */
+  /** Command name */
   command: string;
-  /** Command arguments */
+  /** Command-specific arguments */
   args?: Record<string, unknown>;
 }
 
 /**
- * Socket response from the daemon.
+ * Socket API response format.
  */
-export interface SocketResponse {
-  /** Whether the command succeeded */
+export interface SocketResponse<T = unknown> {
+  /** Whether command succeeded */
   success: boolean;
-  /** Response data (if success) */
-  data?: unknown;
-  /** Error message (if failure) */
+  /** Command response data (if successful) */
+  data?: T;
+  /** Error message (if failed) */
   error?: string;
+}
+
+/**
+ * Daemon status response.
+ */
+export interface DaemonStatus {
+  /** Whether daemon is running */
+  running: boolean;
+  /** Daemon process ID */
+  pid: number;
+  /** Number of tracked repositories */
+  repos: number;
+  /** Total number of agents */
+  agents: number;
+  /** Path to the Unix socket */
+  socket_path: string;
+}
+
+/**
+ * Helper to check if an agent type is persistent (auto-restarted when dead).
+ */
+export function isPersistentAgentType(type: AgentType): boolean {
+  return ['supervisor', 'merge-queue', 'pr-shepherd', 'workspace', 'generic-persistent'].includes(
+    type
+  );
+}
+
+/**
+ * Default merge queue configuration.
+ */
+export function defaultMergeQueueConfig(): MergeQueueConfig {
+  return {
+    enabled: true,
+    track_mode: 'all',
+  };
+}
+
+/**
+ * Default PR shepherd configuration.
+ */
+export function defaultPRShepherdConfig(): PRShepherdConfig {
+  return {
+    enabled: true,
+    track_mode: 'author',
+  };
 }
