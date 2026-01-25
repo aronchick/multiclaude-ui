@@ -20,7 +20,7 @@ module.exports = {
     '@typescript-eslint/no-explicit-any': 'error',
     'no-console': ['warn', { allow: ['warn', 'error'] }],
   },
-  ignorePatterns: ['dist', 'node_modules', '*.js'],
+  ignorePatterns: ['dist', 'node_modules', '*.js', '**/*.test.ts'],
   overrides: [
     {
       // Type-aware linting for packages with tsconfig
