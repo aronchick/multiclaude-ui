@@ -1,0 +1,33 @@
+# Tool Categories for multiclaude-ui
+# Each category defines a type of tool that can be registered
+
+categories:
+  dashboard:
+    name: Dashboard
+    description: Web-based interfaces for monitoring and controlling agents
+    icon: layout-dashboard
+
+  notifications:
+    name: Notifications
+    description: Alert systems for desktop, mobile, or messaging platforms
+    icon: bell
+
+  library:
+    name: Library
+    description: Shared utilities and SDKs for daemon communication
+    icon: library
+
+  extension:
+    name: Extension
+    description: IDE and editor integrations
+    icon: puzzle
+
+  monitoring:
+    name: Monitoring
+    description: Observability, logging, and metrics tools
+    icon: activity
+
+  automation:
+    name: Automation
+    description: Scripts, bots, and workflow automation
+    icon: bot

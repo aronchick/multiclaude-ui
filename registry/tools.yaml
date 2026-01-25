@@ -1,0 +1,25 @@
+# Tool Registry for multiclaude-ui
+# Register tools here to make them discoverable
+#
+# Schema for each tool:
+#   name: string (required) - Display name
+#   id: string (required) - Unique identifier (lowercase, hyphens)
+#   category: string (required) - Must match a category from categories.yaml
+#   description: string (required) - Brief description
+#   package: string (optional) - npm package name if published
+#   path: string (optional) - Path within monorepo (e.g., packages/web)
+#   status: draft | alpha | beta | stable (default: draft)
+#   maintainers: string[] (optional) - GitHub usernames
+#
+# Example:
+#   - id: web-dashboard
+#     name: Web Dashboard
+#     category: dashboard
+#     description: Local React dashboard for monitoring agents
+#     package: "@multiclaude/web"
+#     path: packages/web
+#     status: alpha
+#     maintainers:
+#       - aronchick
+
+tools: []
