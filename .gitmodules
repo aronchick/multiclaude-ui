@@ -1,0 +1,3 @@
+[submodule "multiclaude"]
+	path = multiclaude
+	url = https://github.com/dlorenc/multiclaude
