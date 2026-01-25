@@ -2,203 +2,200 @@
 
 ## Purpose
 
-**multiclaude-ui** is a monorepo of self-contained tools and interfaces for interacting with the multiclaude agent swarm system. It serves as the community contribution point for UI/UX work, kept separate from the core multiclaude repo but always in sync with it.
+**multiclaude-ui** is a monorepo of community tools for [multiclaude](https://github.com/dlorenc/multiclaude). The project provides:
+- A shared TypeScript library (`@multiclaude/core`) for daemon communication
+- A React web dashboard (`@multiclaude/web`) for monitoring agents
+- A foundation for community-contributed tools
 
 ### Goals
-- **Multiple interfaces**: Slack bot, web dashboard, CLI enhancements, notifications, etc.
-- **Shared utilities**: Common library for daemon communication, state parsing, message handling
-- **Community contributions**: Easy for contributors to add new interfaces without touching core
-- **Always in sync**: Main multiclaude repo as read-only submodule, regularly updated
+- **Shared library**: Common code for daemon communication, types, state watching
+- **Self-contained packages**: Each package works independently
+- **Extractable**: Any package can be forked out as its own repo
+- **Community contributions**: Easy to add new tools as new packages
+- **Single command**: `npm install && npm run web` to start dashboard
 
-### Architecture Overview
+### Repository Structure
 ```
 multiclaude-ui/
-  packages/
-    core/              # Shared utilities for daemon communication
-    web/               # Local web dashboard (React + Tailwind)
-    slack/             # Slack bot integration
-    cli-extras/        # Additional CLI commands/TUI
-    notifications/     # Desktop/system notifications
-    ...                # Future interfaces
-  multiclaude/         # READ-ONLY submodule of main repo
-  scripts/             # Sync scripts, CI helpers
+├── multiclaude/              # READ-ONLY submodule (source of truth)
+│   ├── internal/state/       # Go types (state.go)
+│   └── docs/extending/       # Socket API, state file docs
+│
+├── packages/
+│   ├── core/                 # @multiclaude/core - shared library
+│   │   ├── src/
+│   │   │   ├── types.ts      # TypeScript types from state.go
+│   │   │   ├── schemas.ts    # Zod validation schemas
+│   │   │   ├── client.ts     # DaemonClient (socket API)
+│   │   │   ├── state.ts      # StateReader (file watcher)
+│   │   │   ├── messages.ts   # MessageReader
+│   │   │   └── index.ts      # Public exports
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   │
+│   └── web/                  # @multiclaude/web - React dashboard
+│       ├── src/
+│       │   ├── App.tsx
+│       │   └── components/
+│       │       ├── AgentList.tsx
+│       │       ├── TaskHistory.tsx
+│       │       └── MessageFeed.tsx
+│       ├── package.json
+│       ├── vite.config.ts
+│       └── tailwind.config.js
+│
+├── docs/
+│   └── CONTRIBUTING.md       # How to add new packages
+│
+├── .github/workflows/
+│   └── ci.yml                # Build, lint, test CI
+│
+├── package.json              # Workspace root
+├── turbo.json                # Build orchestration
+└── tsconfig.json             # Base TypeScript config
 ```
 
-### What multiclaude does
-multiclaude is a multi-agent orchestration system that coordinates specialized Claude Code agents:
-- **Workers**: Complete assigned tasks, create PRs
-- **Reviewers**: Code review with blocking/non-blocking feedback
-- **Merge-Queue**: Merges PRs when CI passes, maintains main branch health
-- **PR-Shepherd**: Manages PRs to upstream repositories (for forks)
-- **Supervisor**: Coordinates the swarm, assigns work, handles escalations
+## Philosophy
 
-The daemon runs locally at `~/.multiclaude/`, managing state via `state.json`, agent messages via the `messages/` directory, and communicating through `daemon.sock`.
+### Self-Contained but Shared
 
-## Development Philosophy
+Each package in `packages/` is designed to be:
 
-**This project is vibe coded.** AI agents write most of the code. Tool choices optimize for:
-1. **Popularity** - More training data = better LLM output
-2. **Simplicity** - Fewer abstractions = fewer mistakes
-3. **Convention over configuration** - Standard patterns LLMs know well
+1. **Runnable from monorepo**: `npm run web` (from root)
+2. **Extractable**: Fork repo, delete other packages, keep what you need
+3. **Forkable**: Clone repo, vendor @multiclaude/core into your project
+4. **Minimal**: Only essential dependencies
 
-## Tech Stack
+### Package Independence
 
-> All choices prioritize LLM compatibility and mainstream popularity.
+Each package should:
+- Have its own `package.json`
+- Be buildable independently via Turborepo
+- Include a README with standalone instructions
+- Work if extracted to its own repo
 
-### Monorepo Tooling
-- **npm workspaces** - Most training data, universal compatibility
-- **Turborepo** - Popular, simple config, great caching
-- **TypeScript** project references for cross-package types
+## Packages
 
-### Shared Core (`packages/core`)
-- **TypeScript** (strict mode)
-- **Zod** for runtime validation - extremely popular, LLMs know it cold
-- Zero framework dependencies - pure utilities
+### packages/core (@multiclaude/core)
 
-### Web Dashboard (`packages/web`)
-- **React 18+** with TypeScript - the most popular UI framework by far
-- **Vite** - fast, simple, well-known
-- **Tailwind CSS** - extremely popular, LLMs excel at it
-- **React Query (TanStack Query)** - the standard for data fetching
-- **React Router** - the standard for routing
-- **Lucide React** - popular icon library
+The shared library for daemon communication.
 
-### Slack Integration (`packages/slack`)
-- **Bolt.js** (official Slack SDK) - most documented approach
-- Simple event handlers, no frameworks
+```typescript
+import { DaemonClient, StateReader, Agent, Repository } from '@multiclaude/core';
 
-### Testing (All Packages)
-- **Vitest** - fast, Vite-native, popular
-- **React Testing Library** - the standard
-- **Playwright** for e2e when needed
+// Send commands to daemon
+const client = new DaemonClient();
+const status = await client.send('status');
 
-### Tooling
-- **ESLint** + **Prettier** - the universal standard
-- **TypeScript** strict mode everywhere
-- **Changesets** for versioning (optional, can skip initially)
-
-## Project Conventions
-
-### Vibe Coding Guidelines
-
-When AI generates code for this project:
-- **Prefer explicit over clever** - verbose but clear beats concise but confusing
-- **Use standard patterns** - don't invent new abstractions
-- **Copy working examples** - adapt existing code rather than writing from scratch
-- **Keep files small** - easier for LLMs to reason about (<200 lines ideal)
-- **Inline over abstract** - duplication is fine, premature abstraction is not
-- **Comments for context** - explain the "why" for non-obvious decisions
-
-### Monorepo Rules
-
-- **Self-contained packages**: Each package should work independently
-- **Core is dependency-free**: `packages/core` has no UI framework deps
-- **Import from core**: All packages use `@multiclaude/core` for daemon communication
-- **No cross-package imports** except through core
-
-### Package Structure
-```
-packages/<name>/
-  src/
-  tests/
-  package.json        # Scoped: @multiclaude/<name>
-  tsconfig.json       # Extends root config
-  README.md           # Package-specific docs
+// Watch state changes
+const reader = new StateReader();
+reader.on('change', (state) => {
+  console.log('Agents:', Object.keys(state.repos['myrepo'].agents));
+});
+reader.start();
 ```
 
-### Code Style
+**Files:**
+- `types.ts` - All TypeScript interfaces matching Go types
+- `schemas.ts` - Zod schemas for runtime validation
+- `client.ts` - DaemonClient for socket communication
+- `state.ts` - StateReader for watching state.json
+- `messages.ts` - MessageReader for watching message files
 
-- **Functional components only** (React packages)
-- **Named exports** preferred over default exports
-- **Explicit return types** on public APIs
-- **Prefer `interface` over `type`** for object shapes
-- **Use package aliases** (`@multiclaude/core`, not relative paths)
+### packages/web (@multiclaude/web)
 
-### Naming Conventions
-- **Packages**: lowercase with hyphens (`cli-extras`)
-- **Components**: PascalCase (`AgentCard.tsx`)
-- **Hooks**: camelCase with `use` prefix (`useAgentStatus.ts`)
-- **Utilities**: camelCase (`formatTimestamp.ts`)
-- **Types/Interfaces**: PascalCase (`DaemonState`, `AgentStatus`)
+React dashboard for monitoring agents.
 
-### Submodule Management
+**Tech**: React, Vite, Tailwind CSS
+**Purpose**: Visual dashboard for monitoring agents
+**Features**:
+- Real-time agent status (AgentList component)
+- Task history and PR tracking (TaskHistory component)
+- Inter-agent message feed (MessageFeed component)
+- Repo selection sidebar
 
-The main multiclaude repo (Go CLI tool) is included as a **read-only submodule** at `./multiclaude/`.
+**Run**: `npm run web` from repo root
 
-> Note: The main multiclaude CLI is written in Go. This UI repo is TypeScript/Node.
-> The submodule gives us access to documentation, type definitions (via comments/specs),
-> and ensures our interfaces stay compatible with the daemon.
+## Future Packages (Ideas)
+
+These can be added as new packages in `packages/`:
+
+| Package | Description |
+|---------|-------------|
+| `slack` | Slack bot with /spawn and /status commands |
+| `discord` | Discord bot with rich embeds |
+| `cli-tui` | Terminal UI with Ink |
+| `vscode` | VS Code extension |
+| `prometheus` | Prometheus metrics exporter |
+| `raycast` | Raycast extension |
+
+## Development Workflow
+
+### Quick Start
 
 ```bash
-# Update submodule to latest main
-git submodule update --remote multiclaude
+# Clone with submodule
+git clone --recursive https://github.com/aronchick/multiclaude-ui
+cd multiclaude-ui
 
-# Or via script
-npm run sync:upstream
+# Install and run dashboard
+npm install
+npm run web
 ```
 
-**Rules:**
-- NEVER commit changes to the submodule
-- Changes to core multiclaude go through the main repo
-- CI checks submodule is on an official commit
-- Types/interfaces can be imported from submodule for compatibility
+Then open http://localhost:3000
 
-### Git Workflow
+### Common Commands
 
-- **Trunk-based development** with short-lived feature branches
-- **Branch naming**: `feature/<package>/<description>`, `fix/<package>/<description>`
-- **Commits**: Conventional commits with scope (`feat(web): add agent cards`)
-- **PRs**: Squash merge to main
-- **jj preferred** over git (per user preferences)
+```bash
+npm install          # Install all dependencies
+npm run build        # Build all packages (Turborepo)
+npm run web          # Run web dashboard
+npm run typecheck    # Type check all packages
+npm run lint         # Lint all packages
+npm test             # Run all tests
+```
 
 ### Adding a New Package
 
-1. Create `packages/<name>/` with standard structure
-2. Package is auto-discovered via `packages/*` in workspace config
-3. Extend shared tsconfig and eslint configs
-4. Add to `turbo.json` pipeline if needed
-5. Add brief description to root README
+1. Create `packages/mytool/` directory
+2. Add `package.json` with `@multiclaude/core` as workspace dependency
+3. Add `tsconfig.json` extending root config
+4. Implement your package
+5. Submit PR
 
-## Domain Context
+See `docs/CONTRIBUTING.md` for detailed instructions.
 
-### Key Entities
+## Build System
 
-| Entity | Description |
-|--------|-------------|
-| **Agent** | A running Claude Code instance with a role (worker, reviewer, etc.) |
-| **Task** | Work assigned to a worker agent |
-| **Message** | Inter-agent communication (stored in `~/.multiclaude/messages/`) |
-| **PR** | GitHub Pull Request created/managed by agents |
-| **Daemon** | Background process managing agent coordination |
+### Monorepo Tooling
 
-### Agent States
-- `idle` - Waiting for work
-- `working` - Actively on a task
-- `blocked` - Waiting for human input or another agent
-- `completed` - Finished current task
+- **npm workspaces** for package management
+- **Turborepo** for build orchestration and caching
+- **TypeScript strict mode** for type safety
 
-### Communication Flow
-1. Supervisor assigns task to worker
-2. Worker creates PR, signals completion
-3. Merge-queue checks CI, may spawn reviewer
-4. Reviewer posts feedback, reports to merge-queue
-5. Merge-queue merges or spawns worker to fix
+### Package Layout
 
-### Core Package Responsibilities
+```json
+// Root package.json
+{
+  "workspaces": ["packages/*"]
+}
+```
 
-`@multiclaude/core` should provide:
-- **DaemonClient**: Connect to daemon socket, send commands
-- **StateParser**: Parse and validate `state.json`
-- **MessageReader**: Read/watch message queue
-- **Types**: All shared TypeScript types
-- **Events**: Event emitter for real-time updates
+### CI Strategy
 
-### Daemon State Format (from ~/.multiclaude/state.json)
+Single CI workflow that:
+1. Checks out repo with submodule
+2. Installs dependencies
+3. Builds all packages (core first via Turborepo)
+4. Runs typecheck, lint, and tests
 
-> These TypeScript types are derived from `multiclaude/internal/state/state.go`
+## Types (from multiclaude/internal/state/state.go)
+
+All libraries implement these types:
 
 ```typescript
-// Root state structure
 interface DaemonState {
   repos: Record<string, Repository>;
   current_repo?: string;
@@ -212,141 +209,88 @@ interface Repository {
   merge_queue_config?: MergeQueueConfig;
   pr_shepherd_config?: PRShepherdConfig;
   fork_config?: ForkConfig;
-  target_branch?: string;  // Usually "main"
+  target_branch?: string;
 }
 
 interface Agent {
   type: AgentType;
   worktree_path: string;
   tmux_window: string;
-  session_id: string;       // Claude session ID
-  pid: number;              // 0 if not running
-  task?: string;            // Only for workers
-  summary?: string;         // Worker completion summary
-  failure_reason?: string;  // Why task failed (workers only)
-  created_at: string;       // ISO 8601
-  last_nudge?: string;      // ISO 8601
-  ready_for_cleanup?: boolean;  // Workers only
+  session_id: string;
+  pid: number;
+  task?: string;
+  summary?: string;
+  failure_reason?: string;
+  created_at: string;
+  last_nudge?: string;
+  ready_for_cleanup?: boolean;
 }
 
 type AgentType =
-  | 'supervisor'
-  | 'worker'
-  | 'merge-queue'
-  | 'pr-shepherd'
-  | 'workspace'
-  | 'review'
+  | 'supervisor' | 'worker' | 'merge-queue'
+  | 'pr-shepherd' | 'workspace' | 'review'
   | 'generic-persistent';
 
-interface TaskHistoryEntry {
-  name: string;              // Worker name e.g., "clever-fox"
-  task: string;              // Task description
-  branch: string;            // Git branch
-  pr_url?: string;           // PR URL if created
-  pr_number?: number;        // PR number
-  status: TaskStatus;
-  summary?: string;
-  failure_reason?: string;
-  created_at: string;        // ISO 8601
-  completed_at?: string;     // ISO 8601
-}
-
 type TaskStatus = 'open' | 'merged' | 'closed' | 'no-pr' | 'failed' | 'unknown';
-
-interface MergeQueueConfig {
-  enabled: boolean;          // Default: true
-  track_mode: TrackMode;     // Default: 'all'
-}
-
-interface PRShepherdConfig {
-  enabled: boolean;          // Default: true in fork mode
-  track_mode: TrackMode;     // Default: 'author' in fork mode
-}
-
-type TrackMode = 'all' | 'author' | 'assigned';
-
-interface ForkConfig {
-  is_fork: boolean;
-  upstream_url?: string;
-  upstream_owner?: string;
-  upstream_repo?: string;
-  force_fork_mode?: boolean;
-}
 ```
 
-### Message Format (from ~/.multiclaude/messages/<repo>/<agent>/*.json)
-
-```typescript
-interface AgentMessage {
-  id: string;          // e.g., "msg-27585239-ba05"
-  from: string;        // Agent name or worker name
-  to: string;          // Target agent type
-  timestamp: string;   // ISO 8601
-  body: string;        // Message content
-  status: 'pending' | 'delivered' | 'read' | 'acknowledged';
-}
-```
-
-Messages are stored as individual JSON files in `~/.multiclaude/messages/<repo>/<agent>/`.
+## Integration Points
 
 ### Socket API
+- Location: `~/.multiclaude/daemon.sock`
+- Protocol: JSON over Unix socket
+- Docs: `multiclaude/docs/extending/SOCKET_API.md`
 
-The daemon exposes a Unix socket at `~/.multiclaude/daemon.sock` for programmatic control.
+### State File
+- Location: `~/.multiclaude/state.json`
+- Format: Atomic JSON writes
+- Docs: `multiclaude/docs/extending/STATE_FILE_INTEGRATION.md`
 
-**Protocol**: JSON request/response over Unix socket
+### Message Files
+- Location: `~/.multiclaude/messages/<repo>/<agent>/*.json`
+- Format: One JSON file per message
 
-```typescript
-// Request format
-interface SocketRequest {
-  command: string;
-  args?: Record<string, unknown>;
-}
+## Development Philosophy
 
-// Response format
-interface SocketResponse {
-  success: boolean;
-  data?: unknown;
-  error?: string;
-}
+**This project is vibe coded.** Choices optimize for LLM compatibility:
+
+1. **Popular tools** - More training data = better output
+2. **Simple patterns** - Avoid clever abstractions
+3. **Small files** - <200 lines ideal for LLM context
+4. **Explicit code** - Verbose > clever
+5. **Copy-friendly** - Each tool works standalone
+
+## Keeping Types in Sync
+
+When the multiclaude daemon adds new types:
+
+```bash
+# Update submodule to latest
+git submodule update --remote multiclaude
+
+# Manually update packages/core/src/types.ts to match
+# multiclaude/internal/state/state.go
+
+# Run build to verify
+npm run build
 ```
 
-**Key commands** (see `multiclaude/docs/extending/SOCKET_API.md` for full reference):
-- `ping` - Check if daemon is alive
-- `status` - Get daemon status
-- `list_repos` - List tracked repositories
-- `list_agents` - List agents for a repo
-- `add_agent` - Spawn a new agent
-- `remove_agent` - Kill an agent
-- `task_history` - Get task history
+## Contributing
 
-## Important Constraints
+### Adding a Package
+1. Create `packages/mytool/` directory
+2. Add `package.json` depending on `@multiclaude/core`
+3. Implement your package
+4. Run `npm run build && npm run lint`
+5. Submit PR
 
-- **Submodule is read-only**: Never modify, only update
-- **Core has no deps**: Keep `@multiclaude/core` dependency-free
-- **Each package standalone**: Should work without other UI packages
-- **Local-first**: All tools assume local daemon initially
-- **Sync regularly**: CI should fail if submodule is stale (>1 week behind main)
+### Modifying Core Library
+1. Make changes in `packages/core/src/`
+2. Update packages that depend on it if needed
+3. Run full test suite: `npm test`
+4. Submit PR
 
-## External Dependencies
-
-### From Submodule
-- Type definitions
-- Protocol documentation
-- Test fixtures
-
-### Runtime
-- **multiclaude daemon**: Unix socket at `~/.multiclaude/daemon.sock`
-- **GitHub API**: Via `gh` CLI for PR status
-- **Local filesystem**: `state.json`, `messages/`, `output/`
-- **Slack API**: For slack package (requires bot token)
-
-## Planned Packages
-
-| Package | Purpose | Priority |
-|---------|---------|----------|
-| `core` | Shared daemon communication library | P0 |
-| `web` | Local web dashboard | P0 |
-| `slack` | Slack bot for notifications and commands | P1 |
-| `cli-extras` | TUI, additional commands | P2 |
-| `notifications` | Desktop notifications (macOS/Linux) | P2 |
-| `vscode` | VS Code extension | P3 |
+### Extracting for Standalone Use
+1. Fork this repo
+2. Delete packages you don't need
+3. Vendor `@multiclaude/core` or keep as dependency

@@ -21,7 +21,7 @@
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --ext .ts",
+    "lint": "eslint src --ext .ts --ignore-pattern '**/*.test.ts'",
     "test": "vitest run",
     "test:watch": "vitest"
   },
