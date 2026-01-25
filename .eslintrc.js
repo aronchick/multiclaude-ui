@@ -25,8 +25,12 @@ module.exports = {
     {
       // Type-aware linting for packages with tsconfig
       files: ['packages/*/src/**/*.ts', 'packages/*/src/**/*.tsx'],
+      excludedFiles: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/*.spec.tsx'],
       parserOptions: {
-        project: ['./packages/*/tsconfig.json'],
+        project: [
+          './packages/core/tsconfig.eslint.json',
+          './packages/web/tsconfig.json',
+        ],
         tsconfigRootDir: __dirname,
       },
       extends: [
@@ -35,6 +39,23 @@ module.exports = {
       rules: {
         '@typescript-eslint/prefer-nullish-coalescing': 'error',
         '@typescript-eslint/prefer-optional-chain': 'error',
+      },
+    },
+    {
+      // Relaxed rules for test files
+      files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/*.spec.tsx'],
+      parserOptions: {
+        project: [
+          './packages/core/tsconfig.eslint.json',
+          './packages/web/tsconfig.json',
+        ],
+        tsconfigRootDir: __dirname,
+      },
+      rules: {
+        '@typescript-eslint/no-unsafe-assignment': 'off',
+        '@typescript-eslint/no-unsafe-call': 'off',
+        '@typescript-eslint/no-unsafe-member-access': 'off',
+        '@typescript-eslint/no-unsafe-return': 'off',
       },
     },
   ],
