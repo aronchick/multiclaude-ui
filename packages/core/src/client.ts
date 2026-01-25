@@ -1,173 +1,375 @@
 /**
- * DaemonClient - Unix socket communication with the multiclaude daemon
+ * DaemonClient - Communicate with the multiclaude daemon via Unix socket.
  *
- * This module is implemented by worker: bright-wolf
- *
- * @example
- * ```typescript
- * const client = new DaemonClient();
- * await client.connect();
- *
- * const repos = await client.listRepos();
- * await client.spawnWorker('my-repo', 'Fix the login bug');
- *
- * await client.disconnect();
- * ```
+ * This module provides a client for the daemon's socket API, enabling
+ * programmatic control of repositories, agents, and tasks.
  */
 
-import type { SocketRequest, SocketResponse, Repository, Agent } from './types';
+import { createConnection, type Socket } from 'node:net';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { parseSocketResponse, parseDaemonStatus, type DaemonStatus } from './schemas.js';
+import type { SocketRequest, SocketResponse } from './types.js';
 
 /**
- * Options for creating a DaemonClient instance.
+ * Options for DaemonClient.
  */
 export interface DaemonClientOptions {
-  /**
-   * Path to the daemon socket.
-   * Defaults to ~/.multiclaude/daemon.sock
-   */
+  /** Path to daemon.sock. Defaults to ~/.multiclaude/daemon.sock */
   socketPath?: string;
-
-  /**
-   * Connection timeout in milliseconds.
-   * Defaults to 5000ms.
-   */
+  /** Timeout for socket operations in ms. Defaults to 30000 (30s). */
   timeout?: number;
 }
 
 /**
- * DaemonClient provides a typed interface to the multiclaude daemon.
- *
- * Communicates via Unix socket using JSON-RPC-style requests.
- * All methods are async and handle connection management automatically.
+ * Default path to the daemon socket.
+ */
+export function defaultSocketPath(): string {
+  return join(homedir(), '.multiclaude', 'daemon.sock');
+}
+
+/**
+ * Error thrown when daemon operations fail.
+ */
+export class DaemonError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string
+  ) {
+    super(message);
+    this.name = 'DaemonError';
+  }
+}
+
+/**
+ * DaemonClient communicates with the multiclaude daemon via Unix socket.
  *
  * @example
  * ```typescript
  * const client = new DaemonClient();
  *
- * try {
- *   await client.connect();
+ * // Check if daemon is running
+ * const isRunning = await client.ping();
  *
- *   // List all repositories
- *   const repos = await client.listRepos();
+ * // Get status
+ * const status = await client.status();
+ * console.log(`Daemon PID: ${status.pid}`);
  *
- *   // Spawn a worker
- *   const worker = await client.spawnWorker('my-repo', 'Add user authentication');
- *   console.log(`Spawned worker: ${worker.name}`);
+ * // List repositories
+ * const repos = await client.listRepos();
  *
- *   // Send a message between agents
- *   await client.sendMessage('my-repo', 'supervisor', 'clever-fox', 'Please review PR #42');
- *
- * } finally {
- *   await client.disconnect();
- * }
+ * // Spawn a worker
+ * await client.addAgent('my-repo', 'clever-fox', 'worker', 'Add authentication');
  * ```
  */
 export class DaemonClient {
-  // Options stored for use by implementer (bright-wolf)
-  private _options: Required<DaemonClientOptions>;
+  private readonly socketPath: string;
+  private readonly timeout: number;
 
   constructor(options: DaemonClientOptions = {}) {
-    this._options = {
-      socketPath: options.socketPath ?? `${process.env.HOME}/.multiclaude/daemon.sock`,
-      timeout: options.timeout ?? 5000,
-    };
+    this.socketPath = options.socketPath ?? defaultSocketPath();
+    this.timeout = options.timeout ?? 30000;
   }
 
   /**
-   * Connect to the daemon socket.
-   * @throws Error if daemon is not running or connection fails
+   * Send a raw command to the daemon.
    */
-  async connect(): Promise<void> {
-    // TODO: Implemented by bright-wolf
-    throw new Error('DaemonClient.connect() not implemented - see worker: bright-wolf');
+  async send<T = unknown>(command: string, args?: Record<string, unknown>): Promise<T> {
+    const request: SocketRequest = { command };
+    if (args) {
+      request.args = args;
+    }
+
+    const response = await this.sendRaw(request);
+    const parsed = parseSocketResponse(response);
+
+    if (!parsed.success) {
+      throw new DaemonError(parsed.error ?? 'Unknown error', 'COMMAND_FAILED');
+    }
+
+    return parsed.data as T;
   }
 
   /**
-   * Disconnect from the daemon socket.
+   * Check if daemon is alive.
    */
-  async disconnect(): Promise<void> {
-    // TODO: Implemented by bright-wolf
-    throw new Error('DaemonClient.disconnect() not implemented - see worker: bright-wolf');
+  async ping(): Promise<boolean> {
+    try {
+      const result = await this.send<string>('ping');
+      return result === 'pong';
+    } catch {
+      return false;
+    }
   }
 
   /**
-   * Check if connected to the daemon.
+   * Get daemon status.
    */
-  isConnected(): boolean {
-    // TODO: Implemented by bright-wolf
-    return false;
+  async status(): Promise<DaemonStatus> {
+    const data = await this.send('status');
+    return parseDaemonStatus(data);
   }
 
   /**
-   * Send a raw request to the daemon.
-   * @param request The request to send
-   * @returns The daemon's response
+   * Stop the daemon gracefully.
    */
-  async send(request: SocketRequest): Promise<SocketResponse> {
-    // TODO: Implemented by bright-wolf
-    throw new Error('DaemonClient.send() not implemented - see worker: bright-wolf');
+  async stop(): Promise<string> {
+    return this.send<string>('stop');
   }
-
-  // ============================================================================
-  // High-Level API
-  // ============================================================================
 
   /**
    * List all tracked repositories.
    */
   async listRepos(): Promise<string[]> {
-    // TODO: Implemented by bright-wolf
-    throw new Error('DaemonClient.listRepos() not implemented - see worker: bright-wolf');
+    const data = await this.send<{ repos: string[] }>('list_repos');
+    return data.repos;
   }
 
   /**
-   * Get a repository by name.
+   * Add a new repository.
    */
-  async getRepo(name: string): Promise<Repository | null> {
-    // TODO: Implemented by bright-wolf
-    throw new Error('DaemonClient.getRepo() not implemented - see worker: bright-wolf');
-  }
-
-  /**
-   * Spawn a new worker agent.
-   * @param repoName Repository to spawn the worker in
-   * @param task Task description for the worker
-   * @returns Information about the spawned worker
-   */
-  async spawnWorker(
-    repoName: string,
-    task: string
-  ): Promise<{ name: string; agent: Agent }> {
-    // TODO: Implemented by bright-wolf
-    throw new Error('DaemonClient.spawnWorker() not implemented - see worker: bright-wolf');
-  }
-
-  /**
-   * Get an agent by name.
-   */
-  async getAgent(repoName: string, agentName: string): Promise<Agent | null> {
-    // TODO: Implemented by bright-wolf
-    throw new Error('DaemonClient.getAgent() not implemented - see worker: bright-wolf');
-  }
-
-  /**
-   * Send a message between agents.
-   */
-  async sendMessage(
-    repoName: string,
-    from: string,
-    to: string,
-    content: string
+  async addRepo(
+    name: string,
+    githubUrl: string,
+    options?: {
+      mergeQueueEnabled?: boolean;
+      mergeQueueTrackMode?: 'all' | 'author' | 'assigned';
+    }
   ): Promise<string> {
-    // TODO: Implemented by bright-wolf
-    throw new Error('DaemonClient.sendMessage() not implemented - see worker: bright-wolf');
+    return this.send<string>('add_repo', {
+      name,
+      github_url: githubUrl,
+      merge_queue_enabled: options?.mergeQueueEnabled,
+      merge_queue_track_mode: options?.mergeQueueTrackMode,
+    });
   }
 
   /**
-   * Check daemon health.
+   * Remove a repository.
    */
-  async ping(): Promise<boolean> {
-    // TODO: Implemented by bright-wolf
-    throw new Error('DaemonClient.ping() not implemented - see worker: bright-wolf');
+  async removeRepo(name: string): Promise<string> {
+    return this.send<string>('remove_repo', { name });
+  }
+
+  /**
+   * Get repository configuration.
+   */
+  async getRepoConfig(name: string): Promise<{
+    merge_queue_enabled: boolean;
+    merge_queue_track_mode: string;
+  }> {
+    return this.send('get_repo_config', { name });
+  }
+
+  /**
+   * Update repository configuration.
+   */
+  async updateRepoConfig(
+    name: string,
+    config: {
+      mergeQueueEnabled?: boolean;
+      mergeQueueTrackMode?: 'all' | 'author' | 'assigned';
+    }
+  ): Promise<string> {
+    return this.send<string>('update_repo_config', {
+      name,
+      merge_queue_enabled: config.mergeQueueEnabled,
+      merge_queue_track_mode: config.mergeQueueTrackMode,
+    });
+  }
+
+  /**
+   * Set the current/default repository.
+   */
+  async setCurrentRepo(name: string): Promise<string> {
+    return this.send<string>('set_current_repo', { name });
+  }
+
+  /**
+   * Get the current/default repository name.
+   */
+  async getCurrentRepo(): Promise<string> {
+    return this.send<string>('get_current_repo');
+  }
+
+  /**
+   * Clear the current/default repository.
+   */
+  async clearCurrentRepo(): Promise<string> {
+    return this.send<string>('clear_current_repo');
+  }
+
+  /**
+   * List all agents for a repository.
+   */
+  async listAgents(repo: string): Promise<Record<string, unknown>> {
+    const data = await this.send<{ agents: Record<string, unknown> }>('list_agents', { repo });
+    return data.agents;
+  }
+
+  /**
+   * Add/spawn a new agent.
+   */
+  async addAgent(
+    repo: string,
+    name: string,
+    type: 'supervisor' | 'worker' | 'merge-queue' | 'workspace' | 'review',
+    task?: string
+  ): Promise<string> {
+    return this.send<string>('add_agent', {
+      repo,
+      name,
+      type,
+      task,
+    });
+  }
+
+  /**
+   * Remove/kill an agent.
+   */
+  async removeAgent(repo: string, name: string): Promise<string> {
+    return this.send<string>('remove_agent', { repo, name });
+  }
+
+  /**
+   * Mark a worker as completed.
+   */
+  async completeAgent(
+    repo: string,
+    name: string,
+    options?: {
+      summary?: string;
+      failureReason?: string;
+    }
+  ): Promise<string> {
+    return this.send<string>('complete_agent', {
+      repo,
+      name,
+      summary: options?.summary,
+      failure_reason: options?.failureReason,
+    });
+  }
+
+  /**
+   * Restart a crashed or stopped agent.
+   */
+  async restartAgent(repo: string, name: string): Promise<string> {
+    return this.send<string>('restart_agent', { repo, name });
+  }
+
+  /**
+   * Get task history for a repository.
+   */
+  async taskHistory(
+    repo: string,
+    limit?: number
+  ): Promise<{
+    history: Array<{
+      name: string;
+      task: string;
+      status: string;
+      pr_url?: string;
+      pr_number?: number;
+      created_at: string;
+      completed_at?: string;
+    }>;
+  }> {
+    return this.send('task_history', { repo, limit });
+  }
+
+  /**
+   * Trigger immediate cleanup of dead agents.
+   */
+  async triggerCleanup(): Promise<string> {
+    return this.send<string>('trigger_cleanup');
+  }
+
+  /**
+   * Repair inconsistent state.
+   */
+  async repairState(): Promise<string> {
+    return this.send<string>('repair_state');
+  }
+
+  /**
+   * Trigger immediate message routing.
+   */
+  async routeMessages(): Promise<string> {
+    return this.send<string>('route_messages');
+  }
+
+  /**
+   * Send raw request to socket and return raw response.
+   */
+  private sendRaw(request: SocketRequest): Promise<SocketResponse> {
+    return new Promise((resolve, reject) => {
+      let socket: Socket | null = null;
+      let timeoutId: NodeJS.Timeout | null = null;
+
+      const cleanup = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        if (socket) {
+          socket.destroy();
+          socket = null;
+        }
+      };
+
+      try {
+        socket = createConnection(this.socketPath);
+
+        timeoutId = setTimeout(() => {
+          cleanup();
+          reject(new DaemonError('Socket timeout', 'TIMEOUT'));
+        }, this.timeout);
+
+        socket.on('connect', () => {
+          socket?.write(JSON.stringify(request) + '\n');
+        });
+
+        let data = '';
+        socket.on('data', (chunk) => {
+          data += chunk.toString();
+
+          try {
+            const response = JSON.parse(data) as SocketResponse;
+            cleanup();
+            resolve(response);
+          } catch {
+            // Incomplete JSON, wait for more data
+          }
+        });
+
+        socket.on('error', (error) => {
+          cleanup();
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+            reject(new DaemonError('Daemon not running (socket not found)', 'DAEMON_NOT_RUNNING'));
+          } else if ((error as NodeJS.ErrnoException).code === 'ECONNREFUSED') {
+            reject(new DaemonError('Daemon not accepting connections', 'CONNECTION_REFUSED'));
+          } else {
+            reject(new DaemonError(error.message, 'SOCKET_ERROR'));
+          }
+        });
+
+        socket.on('close', () => {
+          if (data && socket) {
+            try {
+              const response = JSON.parse(data) as SocketResponse;
+              cleanup();
+              resolve(response);
+            } catch {
+              cleanup();
+              reject(new DaemonError('Invalid response from daemon', 'INVALID_RESPONSE'));
+            }
+          }
+        });
+      } catch (error) {
+        cleanup();
+        const err = error instanceof Error ? error : new Error(String(error));
+        reject(new DaemonError(err.message, 'CONNECTION_ERROR'));
+      }
+    });
   }
 }
