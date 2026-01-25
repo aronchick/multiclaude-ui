@@ -1,8 +1,9 @@
+import { useState, useEffect } from 'react';
 import { AgentList } from './components/AgentList';
 import { MessageFeed } from './components/MessageFeed';
 import { TaskHistory } from './components/TaskHistory';
+import { RadarDisplay } from './components/RadarDisplay';
 import { useMulticlaude, useDaemonStatus } from './hooks/useMulticlaude';
-import { useState, useEffect } from 'react';
 
 /**
  * Main dashboard application.
@@ -26,6 +27,20 @@ function App() {
       }
     }
   }, [state, currentRepo]);
+
+  // Demo signal strength - in production, derive from daemon health metrics
+  const [signalStrength, setSignalStrength] = useState(75);
+
+  // Simulate varying signal for demo purposes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSignalStrength((prev) => {
+        const delta = (Math.random() - 0.5) * 20;
+        return Math.max(5, Math.min(95, prev + delta));
+      });
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   const repos = state ? Object.keys(state.repos) : [];
 
@@ -58,7 +73,7 @@ function App() {
 
         <div className="mt-8">
           <h2 className="text-xs uppercase tracking-wider text-gray-400 mb-2">Status</h2>
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-sm mb-4">
             <span
               className={`w-2 h-2 rounded-full ${
                 checking ? 'bg-yellow-500 animate-pulse' : connected ? 'bg-green-500' : 'bg-red-500'
@@ -67,6 +82,10 @@ function App() {
             <span className="text-gray-400">
               Daemon: {checking ? 'Checking...' : connected ? 'Connected' : 'Disconnected'}
             </span>
+          </div>
+          <h2 className="text-xs uppercase tracking-wider text-gray-400 mb-4">System Health</h2>
+          <div className="flex justify-center">
+            <RadarDisplay signalStrength={signalStrength} size={180} />
           </div>
           <button
             onClick={refresh}
