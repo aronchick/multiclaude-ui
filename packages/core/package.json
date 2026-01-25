@@ -1,15 +1,15 @@
 {
   "name": "@multiclaude/core",
   "version": "0.1.0",
-  "description": "Shared daemon communication library for multiclaude",
+  "description": "Core library for communicating with multiclaude daemon",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
   "files": [
@@ -18,6 +18,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
@@ -25,20 +26,19 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "chokidar": "^3.6.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.56.0",
     "typescript": "^5.3.3",
     "vitest": "^1.2.0"
   },
   "peerDependencies": {
-    "chokidar": "^3.6.0"
-  },
-  "peerDependenciesMeta": {
-    "chokidar": {
-      "optional": true
-    }
+    "typescript": ">=5.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
