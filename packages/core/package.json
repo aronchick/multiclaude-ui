@@ -1,0 +1,60 @@
+{
+  "name": "@multiclaude/core",
+  "version": "0.1.0",
+  "description": "Shared daemon communication library for multiclaude",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0"
+  },
+  "peerDependencies": {
+    "chokidar": "^3.6.0"
+  },
+  "peerDependenciesMeta": {
+    "chokidar": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aronchick/multiclaude-ui.git",
+    "directory": "packages/core"
+  },
+  "keywords": [
+    "multiclaude",
+    "claude",
+    "daemon",
+    "agent",
+    "orchestration"
+  ],
+  "author": "multiclaude contributors",
+  "license": "MIT"
+}
