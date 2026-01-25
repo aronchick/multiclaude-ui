@@ -28,7 +28,7 @@ export function useMulticlaude() {
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(() => {
     setLoading(true);
     try {
       // TODO: Implement actual state fetching
@@ -55,7 +55,7 @@ export function useMulticlaude() {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    refresh();
   }, [refresh]);
 
   return { state, error, loading, refresh };
@@ -68,7 +68,7 @@ export function useDaemonStatus() {
   const [connected, setConnected] = useState(false);
   const [checking, setChecking] = useState(true);
 
-  const checkConnection = useCallback(async () => {
+  const checkConnection = useCallback(() => {
     setChecking(true);
     try {
       // TODO: Implement actual ping
@@ -87,8 +87,8 @@ export function useDaemonStatus() {
   }, []);
 
   useEffect(() => {
-    void checkConnection();
-    const interval = setInterval(() => void checkConnection(), 30000);
+    checkConnection();
+    const interval = setInterval(() => checkConnection(), 30000);
     return () => clearInterval(interval);
   }, [checkConnection]);
 
