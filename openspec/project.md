@@ -2,250 +2,324 @@
 
 ## Purpose
 
-**multiclaude-ui** is a community hub for tools and interfaces that extend multiclaude. It is NOT a monorepo containing all the tools - instead, it's a **registry and reference implementation** that links to independent tool repositories.
+**multiclaude-ui** is a monorepo of self-contained tools for multiclaude. Each tool lives in its own directory and can be:
+- Used directly from this repo
+- Forked/extracted as a standalone project
+- Vendored into other projects
+- Built as independent binaries
 
 ### Goals
-- **Registry**: Catalog of community-built multiclaude tools
-- **Reference implementations**: Core libraries that other tools can copy/adapt
-- **Templates**: Scaffolds for new tools in various languages
-- **Documentation**: Shared guides for integrating with multiclaude
-- **Submodule sync**: Keep multiclaude types/docs in sync across the ecosystem
+- **Shared libraries**: Common code for daemon communication, types, utilities
+- **Self-contained tools**: Each tool directory works independently
+- **Extractable**: Any tool can be forked out as its own repo
+- **Polyglot**: TypeScript, Python, Go, Rust - whatever fits the tool
+- **Community contributions**: Easy to add new tools as new directories
 
-### What This Repo Contains
+### Repository Structure
 ```
 multiclaude-ui/
-├── multiclaude/              # READ-ONLY submodule (source of truth for types)
-├── registry/                 # YAML catalog of community tools
-│   ├── tools.yaml           # List of all registered tools
-│   └── categories.yaml      # Tool categories
-├── reference/                # Reference implementations (copy, don't import)
-│   ├── typescript/          # TypeScript types + socket client
-│   ├── python/              # Python types + socket client
-│   └── go/                  # Go client (thin wrapper around multiclaude/pkg)
+├── multiclaude/              # READ-ONLY submodule (source of truth)
+│
+├── lib/                      # Shared libraries
+│   ├── typescript/           # @multiclaude/core - npm package
+│   │   ├── src/
+│   │   │   ├── types.ts     # Types from multiclaude/internal/state/state.go
+│   │   │   ├── client.ts    # DaemonClient (socket communication)
+│   │   │   ├── state.ts     # StateReader (file watching)
+│   │   │   └── index.ts
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   │
+│   ├── python/               # multiclaude-lib - pip package
+│   │   ├── src/multiclaude/
+│   │   │   ├── types.py     # Pydantic models
+│   │   │   ├── client.py    # DaemonClient
+│   │   │   └── state.py     # StateReader
+│   │   └── pyproject.toml
+│   │
+│   └── go/                   # github.com/aronchick/multiclaude-ui/lib/go
+│       ├── types.go
+│       ├── client.go
+│       └── go.mod
+│
+├── tools/                    # Self-contained tools
+│   ├── web/                  # React dashboard
+│   │   ├── src/
+│   │   ├── package.json     # Depends on ../../lib/typescript
+│   │   └── README.md
+│   │
+│   ├── slack/                # Slack bot
+│   │   ├── src/
+│   │   ├── package.json
+│   │   └── README.md
+│   │
+│   ├── cli-tui/              # Terminal UI
+│   │   ├── src/
+│   │   └── package.json
+│   │
+│   ├── vscode/               # VS Code extension
+│   │   ├── src/
+│   │   └── package.json
+│   │
+│   ├── prometheus/           # Prometheus exporter
+│   │   ├── main.go
+│   │   └── go.mod
+│   │
+│   └── discord/              # Discord bot
+│       ├── src/
+│       └── pyproject.toml
+│
 ├── templates/                # Scaffolds for new tools
-│   ├── typescript-tool/     # Create a new TS-based tool
-│   ├── python-tool/         # Create a new Python-based tool
-│   └── slack-bot/           # Slack bot starter
-├── docs/                     # Shared documentation
-│   ├── INTEGRATION.md       # How to integrate with multiclaude
-│   ├── CONTRIBUTING.md      # How to add your tool to the registry
-│   └── PUBLISHING.md        # How to publish/release tools
-└── scripts/                  # Automation
-    ├── sync-types.sh        # Update types from submodule
-    └── validate-registry.sh # Check all registered tools are valid
+│   ├── typescript/
+│   ├── python/
+│   └── go/
+│
+├── scripts/                  # Automation
+│   ├── sync-types.sh        # Update types from submodule
+│   ├── new-tool.sh          # Create new tool from template
+│   └── extract-tool.sh      # Extract tool as standalone repo
+│
+└── docs/
+    ├── INTEGRATION.md
+    └── CONTRIBUTING.md
 ```
-
-### What Lives OUTSIDE This Repo (as separate repos)
-- `multiclaude-web` - React dashboard
-- `multiclaude-slack` - Slack bot
-- `multiclaude-discord` - Discord bot
-- `multiclaude-vscode` - VS Code extension
-- `multiclaude-cli-tui` - Terminal UI
-- `multiclaude-py` - Python client library
-- `multiclaude-prometheus` - Prometheus exporter
-- `multiclaude-notifications` - Desktop notifications
-- ... hundreds more from the community
 
 ## Philosophy
 
-### Why Separate Repos?
+### Self-Contained but Shared
 
-1. **Lower barrier to entry** - Contributors only need to understand their tool, not the whole ecosystem
-2. **Language freedom** - Python tools, Go tools, Rust tools, not just TypeScript
-3. **Independent release cycles** - Each tool versions independently
-4. **Clear ownership** - Each repo has its own maintainers
-5. **Easy to fork** - Want to customize a tool? Fork just that repo
-6. **Discoverable** - Registry makes it easy to find tools
+Each tool in `tools/` is designed to be:
 
-### This Repo's Role
+1. **Runnable from monorepo**: `cd tools/web && npm run dev`
+2. **Extractable**: `./scripts/extract-tool.sh web` creates standalone repo
+3. **Forkable**: Clone repo, delete other tools, keep what you need
+4. **Vendorable**: Copy `lib/typescript/` into your project
 
-| Role | Description |
-|------|-------------|
-| **Registry** | YAML files listing all community tools with metadata |
-| **Reference** | Copy-paste implementations of types and clients |
-| **Templates** | Scaffolds to bootstrap new tools quickly |
-| **Sync point** | Single place to update when multiclaude changes |
-| **Documentation** | Shared guides that all tools link to |
+### Library Philosophy
 
-### NOT This Repo's Role
+The `lib/` packages are:
+- **Published to registries**: npm, PyPI for easy consumption
+- **Vendorable**: Copy the code if you don't want the dependency
+- **Minimal dependencies**: Only what's absolutely necessary
+- **Type-safe**: Full TypeScript/Pydantic/Go types
 
-- ❌ Don't import from this repo as a dependency
-- ❌ Don't build tools inside this repo
-- ❌ Don't create npm/pip packages from this repo
-- ❌ Don't add tool-specific code here
+### Tool Independence
 
-## Registry Format
+Each tool should:
+- Have its own `package.json`/`pyproject.toml`/`go.mod`
+- Be buildable independently: `cd tools/web && npm run build`
+- Have its own CI job
+- Include a README with standalone instructions
+- Work if extracted to its own repo
 
-### tools.yaml
-```yaml
-tools:
-  - name: multiclaude-web
-    repo: https://github.com/aronchick/multiclaude-web
-    description: React-based web dashboard for monitoring agents
-    category: dashboard
-    language: typescript
-    status: stable
-    maintainers:
-      - aronchick
+## Shared Libraries
 
-  - name: multiclaude-slack
-    repo: https://github.com/someone/multiclaude-slack
-    description: Slack bot for notifications and commands
-    category: notifications
-    language: typescript
-    status: beta
-    maintainers:
-      - someone
+### lib/typescript (@multiclaude/core)
 
-  - name: multiclaude-py
-    repo: https://github.com/someone/multiclaude-py
-    description: Python client library for multiclaude
-    category: library
-    language: python
-    status: alpha
-    maintainers:
-      - someone
-```
-
-### categories.yaml
-```yaml
-categories:
-  - id: dashboard
-    name: Dashboards & UIs
-    description: Visual interfaces for monitoring and managing agents
-
-  - id: notifications
-    name: Notifications
-    description: Slack, Discord, email, desktop notifications
-
-  - id: library
-    name: Client Libraries
-    description: Language-specific libraries for integrating with multiclaude
-
-  - id: extension
-    name: IDE Extensions
-    description: VS Code, JetBrains, Vim/Neovim integrations
-
-  - id: monitoring
-    name: Monitoring & Metrics
-    description: Prometheus, Grafana, observability tools
-
-  - id: automation
-    name: Automation
-    description: CI/CD integrations, webhooks, bots
-```
-
-## Reference Implementations
-
-These are **copy-paste** implementations, not packages to import. When you create a new tool:
-
-1. Copy the reference implementation for your language
-2. Adapt it to your needs
-3. You own that code now - no dependency on this repo
-
-### TypeScript Reference (`reference/typescript/`)
 ```typescript
-// types.ts - Copy of types from multiclaude/internal/state/state.go
-// client.ts - Socket client implementation
-// state-reader.ts - State file watcher
-// message-reader.ts - Message file watcher
+// Published to npm as @multiclaude/core
+import { DaemonClient, StateReader, Agent, Repository } from '@multiclaude/core';
+
+const client = new DaemonClient();
+const status = await client.send('status');
+
+const reader = new StateReader();
+reader.on('change', (state) => {
+  console.log('Agents:', Object.keys(state.repos['myrepo'].agents));
+});
 ```
 
-### Python Reference (`reference/python/`)
+**Files:**
+- `types.ts` - All TypeScript interfaces matching Go types
+- `schemas.ts` - Zod schemas for runtime validation
+- `client.ts` - DaemonClient for socket communication
+- `state.ts` - StateReader for watching state.json
+- `messages.ts` - MessageReader for watching message files
+
+### lib/python (multiclaude-lib)
+
 ```python
-# types.py - Pydantic models matching multiclaude state
-# client.py - Socket client implementation
-# state_reader.py - State file watcher (watchdog)
-# message_reader.py - Message file watcher
+# pip install multiclaude-lib
+from multiclaude import DaemonClient, StateReader, Agent
+
+client = DaemonClient()
+status = client.send('status')
+
+reader = StateReader()
+for state in reader.watch():
+    print(f"Agents: {list(state.repos['myrepo'].agents.keys())}")
 ```
 
-### Go Reference (`reference/go/`)
+**Files:**
+- `types.py` - Pydantic models matching Go types
+- `client.py` - DaemonClient for socket communication
+- `state.py` - StateReader using watchdog
+
+### lib/go
+
 ```go
-// Thin wrapper around multiclaude/pkg/...
-// Just re-exports the official packages
+// import "github.com/aronchick/multiclaude-ui/lib/go"
+import mclib "github.com/aronchick/multiclaude-ui/lib/go"
+
+client := mclib.NewClient()
+status, _ := client.Send("status", nil)
+
+reader := mclib.NewStateReader()
+reader.Watch(func(state *mclib.State) {
+    fmt.Println("Agents:", state.Repos["myrepo"].Agents)
+})
 ```
 
-## Templates
+## Tools
 
-Scaffolds for new tools. Run the template generator:
+### tools/web - React Dashboard
+
+**Tech**: React, Vite, Tailwind, TanStack Query
+**Purpose**: Visual dashboard for monitoring and managing agents
+**Features**:
+- Real-time agent status
+- Task history and PR tracking
+- Spawn workers from UI
+- Message feed
+
+### tools/slack - Slack Bot
+
+**Tech**: TypeScript, Bolt.js
+**Purpose**: Slack notifications and commands
+**Features**:
+- `/spawn <task>` - Spawn a worker
+- `/status` - Get agent status
+- Notifications on PR created/merged
+- Thread updates for long-running tasks
+
+### tools/cli-tui - Terminal UI
+
+**Tech**: TypeScript, Ink or Blessed
+**Purpose**: Rich terminal interface
+**Features**:
+- Split panes for multiple agents
+- Real-time log streaming
+- Keyboard navigation
+- Works over SSH
+
+### tools/vscode - VS Code Extension
+
+**Tech**: TypeScript, VS Code API
+**Purpose**: IDE integration
+**Features**:
+- Status bar with agent count
+- Spawn workers from command palette
+- Side panel with agent list
+- Inline PR status
+
+### tools/prometheus - Metrics Exporter
+
+**Tech**: Go
+**Purpose**: Prometheus metrics for observability
+**Features**:
+- Agent count by type/status
+- Task completion rate
+- PR merge latency
+- Message queue depth
+
+### tools/discord - Discord Bot
+
+**Tech**: Python, discord.py
+**Purpose**: Discord notifications and commands
+**Features**:
+- Similar to Slack bot
+- Rich embeds for status
+- Thread per task
+
+## Development Workflow
+
+### Working on a Tool
 
 ```bash
-# Create a new TypeScript-based tool
-./scripts/new-tool.sh --name multiclaude-mytool --lang typescript
+# Install dependencies
+npm install  # or: cd tools/web && npm install
 
-# Create a new Python-based tool
-./scripts/new-tool.sh --name multiclaude-pytool --lang python
+# Run a specific tool
+cd tools/web && npm run dev
 
-# Create a Slack bot
-./scripts/new-tool.sh --name multiclaude-myslack --template slack-bot
+# Build all
+npm run build
+
+# Test all
+npm test
 ```
 
-Templates include:
-- Basic project structure
-- Copy of reference implementation
-- CI/CD workflow
-- README template
-- License (MIT)
+### Adding a New Tool
 
-## Keeping Types in Sync
+```bash
+# Use the template generator
+./scripts/new-tool.sh --name mytool --lang typescript
 
-When multiclaude updates its state format:
+# This creates tools/mytool/ with:
+# - Package config
+# - Dependency on lib/typescript
+# - Basic structure
+# - CI job
+```
 
-1. Update the submodule: `git submodule update --remote multiclaude`
-2. Run sync script: `./scripts/sync-types.sh`
-3. Script updates all reference implementations
-4. Create PR, notify tool maintainers via registry
+### Extracting a Tool
 
-Tools should watch this repo for type changes and update accordingly.
+```bash
+# Create standalone repo from a tool
+./scripts/extract-tool.sh web ~/multiclaude-web
 
-## Contributing a Tool
+# Result: ~/multiclaude-web/ with:
+# - Tool code
+# - Vendored lib/typescript (or npm dependency)
+# - Standalone package.json
+# - Its own git history
+```
 
-See `docs/CONTRIBUTING.md` for full details. Quick version:
+## Build System
 
-1. Create your tool in its own repo
-2. Follow naming convention: `multiclaude-<toolname>`
-3. Include reference implementation (copy, don't depend)
-4. Add CI that tests against latest multiclaude
-5. Submit PR to add your tool to `registry/tools.yaml`
+### Monorepo Tooling
 
-## Development Philosophy
+- **npm workspaces** for package management
+- **Turborepo** for build orchestration and caching
+- **TypeScript project references** for fast builds
 
-**This project is vibe coded.** AI agents write most of the code. Tool choices optimize for:
-1. **Popularity** - More training data = better LLM output
-2. **Simplicity** - Fewer abstractions = fewer mistakes
-3. **Copy over import** - Each tool is self-contained
+### Package Layout
 
-### Vibe Coding Guidelines
+```json
+// Root package.json
+{
+  "workspaces": [
+    "lib/typescript",
+    "tools/*"
+  ]
+}
+```
 
-When AI generates code for tools in this ecosystem:
-- **Prefer explicit over clever** - verbose but clear beats concise but confusing
-- **Copy reference implementations** - don't try to be clever, use what works
-- **Keep files small** - easier for LLMs to reason about (<200 lines ideal)
-- **Inline over abstract** - duplication is fine, premature abstraction is not
-- **Comments for context** - explain the "why" for non-obvious decisions
+```json
+// turbo.json
+{
+  "pipeline": {
+    "build": {
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["build"]
+    }
+  }
+}
+```
 
-## Multiclaude Integration Points
+### CI Strategy
 
-All tools integrate with multiclaude through these interfaces:
+Each tool gets its own CI job that:
+1. Builds lib/typescript first
+2. Builds the tool
+3. Runs tool-specific tests
+4. Can publish independently
 
-### Socket API (Full Control)
-- Location: `~/.multiclaude/daemon.sock`
-- Protocol: JSON over Unix socket
-- Use for: Spawning agents, sending messages, triggering operations
-- Docs: `multiclaude/docs/extending/SOCKET_API.md`
+## Types (from multiclaude/internal/state/state.go)
 
-### State File (Read-Only Monitoring)
-- Location: `~/.multiclaude/state.json`
-- Format: JSON (atomic writes, never corrupt)
-- Use for: Watching agent status, task history, repo config
-- Docs: `multiclaude/docs/extending/STATE_FILE_INTEGRATION.md`
-
-### Message Files (Inter-Agent Communication)
-- Location: `~/.multiclaude/messages/<repo>/<agent>/*.json`
-- Format: JSON files per message
-- Use for: Watching agent communication, message feeds
-
-### State Types (from multiclaude/internal/state/state.go)
+All libraries implement these types:
 
 ```typescript
 interface DaemonState {
@@ -283,76 +357,65 @@ type AgentType =
   | 'pr-shepherd' | 'workspace' | 'review'
   | 'generic-persistent';
 
-interface TaskHistoryEntry {
-  name: string;
-  task: string;
-  branch: string;
-  pr_url?: string;
-  pr_number?: number;
-  status: 'open' | 'merged' | 'closed' | 'no-pr' | 'failed' | 'unknown';
-  summary?: string;
-  failure_reason?: string;
-  created_at: string;
-  completed_at?: string;
-}
-
-interface AgentMessage {
-  id: string;
-  from: string;
-  to: string;
-  timestamp: string;
-  body: string;
-  status: 'pending' | 'delivered' | 'read' | 'acknowledged';
-}
+type TaskStatus = 'open' | 'merged' | 'closed' | 'no-pr' | 'failed' | 'unknown';
 ```
 
-## Ecosystem Vision
+## Integration Points
 
+### Socket API
+- Location: `~/.multiclaude/daemon.sock`
+- Protocol: JSON over Unix socket
+- Docs: `multiclaude/docs/extending/SOCKET_API.md`
+
+### State File
+- Location: `~/.multiclaude/state.json`
+- Format: Atomic JSON writes
+- Docs: `multiclaude/docs/extending/STATE_FILE_INTEGRATION.md`
+
+### Message Files
+- Location: `~/.multiclaude/messages/<repo>/<agent>/*.json`
+- Format: One JSON file per message
+
+## Development Philosophy
+
+**This project is vibe coded.** Choices optimize for LLM compatibility:
+
+1. **Popular tools** - More training data = better output
+2. **Simple patterns** - Avoid clever abstractions
+3. **Small files** - <200 lines ideal for LLM context
+4. **Explicit code** - Verbose > clever
+5. **Copy-friendly** - Each tool works standalone
+
+## Keeping Types in Sync
+
+```bash
+# Update submodule
+git submodule update --remote multiclaude
+
+# Regenerate types in all libraries
+./scripts/sync-types.sh
+
+# This updates:
+# - lib/typescript/src/types.ts
+# - lib/python/src/multiclaude/types.py
+# - lib/go/types.go
 ```
-                    ┌─────────────────────────────────────┐
-                    │         multiclaude (core)          │
-                    │   CLI + daemon + agent templates    │
-                    └─────────────────┬───────────────────┘
-                                      │
-                    ┌─────────────────▼───────────────────┐
-                    │       multiclaude-ui (this repo)    │
-                    │   Registry + References + Templates │
-                    └─────────────────┬───────────────────┘
-                                      │
-        ┌─────────────┬───────────────┼───────────────┬─────────────┐
-        │             │               │               │             │
-        ▼             ▼               ▼               ▼             ▼
-   ┌─────────┐  ┌──────────┐  ┌────────────┐  ┌──────────┐  ┌───────────┐
-   │  -web   │  │  -slack  │  │   -vscode  │  │   -py    │  │  -metrics │
-   │ React   │  │  Bolt.js │  │  Extension │  │  Python  │  │Prometheus │
-   └─────────┘  └──────────┘  └────────────┘  └──────────┘  └───────────┘
-        │             │               │               │             │
-        └─────────────┴───────────────┴───────────────┴─────────────┘
-                              Community tools
-                        (hundreds of independent repos)
-```
 
-## Important Constraints
+## Contributing
 
-- **No packages published from this repo** - Reference code is copy-paste only
-- **Tools must be self-contained** - Don't depend on this repo at runtime
-- **Registry is the source of truth** - All tools listed in tools.yaml
-- **Submodule stays in sync** - Update weekly at minimum
-- **MIT license** - All reference code and templates are MIT
+### Adding a Tool
+1. Run `./scripts/new-tool.sh --name mytool --lang typescript`
+2. Implement in `tools/mytool/`
+3. Add CI job in `.github/workflows/`
+4. Submit PR
 
-## Getting Started
+### Modifying Libraries
+1. Make changes in `lib/<lang>/`
+2. Update all tools that depend on it
+3. Run full test suite
+4. Submit PR
 
-### For Tool Users
-Browse the registry, pick a tool, go to its repo, follow its README.
-
-### For Tool Authors
-1. Read `docs/CONTRIBUTING.md`
-2. Copy a template or reference implementation
-3. Build your tool in its own repo
-4. Submit PR to add to registry
-
-### For This Repo's Maintainers
-1. Keep submodule updated
-2. Sync reference implementations when multiclaude changes
-3. Review registry PRs
-4. Maintain templates
+### Extracting for Standalone Use
+1. Fork this repo
+2. Delete tools you don't need
+3. Or use `./scripts/extract-tool.sh` for clean extraction
