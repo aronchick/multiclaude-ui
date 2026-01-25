@@ -1,209 +1,221 @@
 # Bootstrapping multiclaude-ui
 
-This document explains how to use multiclaude itself to build multiclaude-ui.
+This repo is a **community hub** - a registry, reference implementations, and templates. Tools live in their own repos.
 
 ## Quick Start Command
 
-Once this repo is initialized with multiclaude, give this command to your **workspace agent**:
+Give this to your **workspace agent**:
 
 ```
-Bootstrap the multiclaude-ui monorepo. Create the following structure:
+Bootstrap multiclaude-ui as a community hub with:
 
-1. Root monorepo config:
-   - package.json with npm workspaces (packages/*)
-   - turbo.json for build orchestration
-   - tsconfig.json base config (strict mode)
-   - .eslintrc.js shared config
-   - .prettierrc
+1. Registry structure:
+   - registry/tools.yaml (empty list to start)
+   - registry/categories.yaml (dashboard, notifications, library, extension, monitoring, automation)
 
-2. packages/core - Shared daemon communication library:
-   - TypeScript types matching multiclaude/internal/state/state.go
-   - DaemonClient class for Unix socket communication
-   - StateReader class for watching state.json
-   - MessageReader for watching message files
-   - Zod schemas for runtime validation
+2. Reference implementations:
+   - reference/typescript/ (types.ts, client.ts, state-reader.ts, message-reader.ts)
+   - reference/python/ (types.py, client.py, state_reader.py, message_reader.py)
 
-3. packages/web - React dashboard (scaffold only):
-   - Vite + React + TypeScript setup
-   - Tailwind CSS configured
-   - Basic App.tsx that imports from @multiclaude/core
-   - Placeholder components: AgentList, MessageFeed, TaskHistory
+   Types must match ./multiclaude/internal/state/state.go exactly.
+   Socket client must match ./multiclaude/docs/extending/SOCKET_API.md
 
-Reference the submodule at ./multiclaude/ for:
-- Type definitions in internal/state/state.go
-- Socket API docs in docs/extending/SOCKET_API.md
-- State file docs in docs/extending/STATE_FILE_INTEGRATION.md
+3. Templates:
+   - templates/typescript-tool/ (package.json, tsconfig, src/, .github/workflows/ci.yml)
+   - templates/python-tool/ (pyproject.toml, src/, .github/workflows/ci.yml)
 
-Use npm workspaces (not pnpm). All TypeScript strict mode.
-Make sure the build passes: npm install && npm run build
+4. Documentation:
+   - docs/INTEGRATION.md (how to integrate with multiclaude)
+   - docs/CONTRIBUTING.md (how to add your tool to registry)
+
+5. Scripts:
+   - scripts/sync-types.sh (update reference types from submodule)
+   - scripts/new-tool.sh (scaffold a new tool from template)
+   - scripts/validate-registry.sh (check all tools in registry are valid)
+
+6. CI:
+   - .github/workflows/ci.yml (validate registry, check types match submodule)
+
+No npm packages. No dependencies. Reference code is copy-paste only.
 ```
 
-## What This Creates
+## What Gets Created
 
 ```
 multiclaude-ui/
-├── multiclaude/              # READ-ONLY submodule (dlorenc/multiclaude)
-├── packages/
-│   ├── core/                 # @multiclaude/core
-│   │   ├── src/
-│   │   │   ├── types.ts      # TypeScript types from state.go
-│   │   │   ├── schemas.ts    # Zod validation schemas
-│   │   │   ├── client.ts     # DaemonClient (socket communication)
-│   │   │   ├── state.ts      # StateReader (file watching)
-│   │   │   ├── messages.ts   # MessageReader
-│   │   │   └── index.ts      # Public API
-│   │   ├── package.json
-│   │   └── tsconfig.json
-│   └── web/                  # @multiclaude/web
-│       ├── src/
-│       │   ├── components/
-│       │   ├── hooks/
-│       │   ├── App.tsx
-│       │   └── main.tsx
-│       ├── package.json
-│       ├── tsconfig.json
-│       ├── vite.config.ts
-│       └── tailwind.config.js
-├── package.json              # Root workspace config
-├── turbo.json                # Build orchestration
-├── tsconfig.json             # Base TypeScript config
-└── .eslintrc.js              # Shared ESLint config
-```
-
-## Initialize This Repo with multiclaude
-
-```bash
-# Make sure multiclaude daemon is running
-multiclaude start
-
-# Initialize this repo
-multiclaude repo init https://github.com/aronchick/multiclaude-ui
-
-# Attach to your workspace
-tmux attach -t mc-multiclaude-ui
-
-# Or connect directly to workspace
-multiclaude workspace connect multiclaude-ui
+├── multiclaude/              # Already exists (submodule)
+├── registry/
+│   ├── tools.yaml
+│   └── categories.yaml
+├── reference/
+│   ├── typescript/
+│   │   ├── types.ts
+│   │   ├── client.ts
+│   │   ├── state-reader.ts
+│   │   └── message-reader.ts
+│   └── python/
+│       ├── types.py
+│       ├── client.py
+│       ├── state_reader.py
+│       └── message_reader.py
+├── templates/
+│   ├── typescript-tool/
+│   └── python-tool/
+├── docs/
+│   ├── INTEGRATION.md
+│   └── CONTRIBUTING.md
+├── scripts/
+│   ├── sync-types.sh
+│   ├── new-tool.sh
+│   └── validate-registry.sh
+└── .github/
+    └── workflows/
+        └── ci.yml
 ```
 
 ## Spawning Workers
 
-After the initial bootstrap, spawn workers for specific tasks:
+```bash
+# Worker 1: Registry structure
+multiclaude worker create "Create registry/tools.yaml and registry/categories.yaml \
+  with the schema from openspec/project.md. Start with empty tools list. \
+  Categories: dashboard, notifications, library, extension, monitoring, automation."
+
+# Worker 2: TypeScript reference
+multiclaude worker create "Create reference/typescript/ with types.ts, client.ts, \
+  state-reader.ts, message-reader.ts. \
+  Types must exactly match ./multiclaude/internal/state/state.go. \
+  Client must implement socket API from ./multiclaude/docs/extending/SOCKET_API.md. \
+  State reader watches ~/.multiclaude/state.json with chokidar. \
+  No package.json - this is copy-paste code, not a package."
+
+# Worker 3: Python reference
+multiclaude worker create "Create reference/python/ with types.py (Pydantic models), \
+  client.py (socket client), state_reader.py (watchdog-based), message_reader.py. \
+  Types must match ./multiclaude/internal/state/state.go. \
+  Use standard library + pydantic + watchdog only. \
+  No setup.py - this is copy-paste code, not a package."
+
+# Worker 4: TypeScript template
+multiclaude worker create "Create templates/typescript-tool/ scaffold: \
+  package.json, tsconfig.json, src/index.ts, src/types.ts (copied from reference), \
+  .github/workflows/ci.yml, README.md template. \
+  The template should be a working starting point for any TS-based multiclaude tool."
+
+# Worker 5: Python template
+multiclaude worker create "Create templates/python-tool/ scaffold: \
+  pyproject.toml (with uv), src/__init__.py, src/types.py (copied from reference), \
+  .github/workflows/ci.yml, README.md template. \
+  The template should be a working starting point for any Python-based multiclaude tool."
+
+# Worker 6: Documentation
+multiclaude worker create "Create docs/INTEGRATION.md explaining the 3 integration points \
+  (socket API, state file, message files) with code examples. \
+  Create docs/CONTRIBUTING.md explaining how to add a tool to the registry. \
+  Reference ./multiclaude/docs/extending/ for accurate API details."
+
+# Worker 7: Scripts
+multiclaude worker create "Create scripts/sync-types.sh that reads \
+  ./multiclaude/internal/state/state.go and updates reference/typescript/types.ts \
+  and reference/python/types.py. \
+  Create scripts/new-tool.sh that copies a template to a new directory. \
+  Create scripts/validate-registry.sh that checks each tool URL in registry/tools.yaml is valid."
+
+# Worker 8: CI
+multiclaude worker create "Create .github/workflows/ci.yml that: \
+  1. Checks out with submodules \
+  2. Validates registry/tools.yaml is valid YAML \
+  3. Runs scripts/validate-registry.sh \
+  4. Checks reference types match submodule (run sync-types.sh, fail if diff)"
+```
+
+## Creating a New Tool Repo
+
+Once this hub is set up, to create a new tool:
 
 ```bash
-# From your workspace or CLI:
+# Use the template generator
+./scripts/new-tool.sh --name multiclaude-web --lang typescript
 
-# Build the core package
-multiclaude worker create "Implement DaemonClient in packages/core - \
-  connect to Unix socket at ~/.multiclaude/daemon.sock, \
-  send JSON commands, parse responses. \
-  Reference multiclaude/docs/extending/SOCKET_API.md"
+# This creates a new directory with:
+# - Copy of reference implementation
+# - CI workflow
+# - README template
+# - Package config
 
-# Build the state reader
-multiclaude worker create "Implement StateReader in packages/core - \
-  watch ~/.multiclaude/state.json for changes using chokidar, \
-  emit events when state updates. \
-  Reference multiclaude/docs/extending/STATE_FILE_INTEGRATION.md"
+# Then create the repo on GitHub
+gh repo create aronchick/multiclaude-web --public
+cd multiclaude-web
+git init && git add . && git commit -m "Initial scaffold"
+git remote add origin git@github.com:aronchick/multiclaude-web.git
+git push -u origin main
 
-# Build the web dashboard
-multiclaude worker create "Create AgentList component in packages/web - \
-  display all agents across repos with status indicators, \
-  use @multiclaude/core StateReader for data, \
-  show agent type, task, created time, last nudge"
+# Initialize with multiclaude for the brownian ratchet
+multiclaude repo init https://github.com/aronchick/multiclaude-web
 ```
 
-## Phase 1: Core Package (P0)
-
-The core package is the foundation. Workers should complete these in order:
-
-1. **Types** (`types.ts`)
-   - Mirror Go types from `multiclaude/internal/state/state.go`
-   - Export all interfaces and type unions
-
-2. **Schemas** (`schemas.ts`)
-   - Zod schemas for runtime validation
-   - Parse functions that throw on invalid data
-
-3. **StateReader** (`state.ts`)
-   - Watch `~/.multiclaude/state.json`
-   - Emit 'change' events with parsed state
-   - Debounce rapid updates
-
-4. **DaemonClient** (`client.ts`)
-   - Connect to Unix socket
-   - Send JSON-RPC requests
-   - Handle responses and errors
-
-5. **MessageReader** (`messages.ts`)
-   - Watch message directories
-   - Emit new messages as they arrive
-
-## Phase 2: Web Dashboard (P1)
-
-Once core is solid, build the dashboard:
-
-1. **Layout** - Sidebar with repo list, main content area
-2. **AgentList** - Show all agents with status
-3. **MessageFeed** - Real-time message stream
-4. **TaskHistory** - Completed tasks with PR links
-5. **SpawnWorker** - Form to create new workers
-
-## Phase 3: Additional Packages (P2+)
-
-Future packages to consider:
-
-- `packages/slack` - Slack bot using Bolt.js
-- `packages/cli-extras` - TUI with blessed/ink
-- `packages/notifications` - Desktop notifications
-
-## CI/CD Setup
-
-Create `.github/workflows/ci.yml`:
-
-```yaml
-name: CI
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - run: npm ci
-      - run: npm run build
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-```
-
-## Keeping Submodule in Sync
+## Adding a Tool to the Registry
 
 ```bash
-# Update submodule to latest main
-git submodule update --remote multiclaude
+# Fork multiclaude-ui, add to registry/tools.yaml:
+tools:
+  - name: multiclaude-web
+    repo: https://github.com/aronchick/multiclaude-web
+    description: React-based web dashboard for monitoring agents
+    category: dashboard
+    language: typescript
+    status: alpha
+    maintainers:
+      - aronchick
 
-# Verify types still match
-npm run typecheck
-
-# If types changed, update packages/core/src/types.ts
+# Submit PR to multiclaude-ui
 ```
+
+## Ecosystem Growth Strategy
+
+### Phase 1: Foundation (this repo)
+- Registry structure
+- TypeScript + Python references
+- Templates
+- Documentation
+- CI
+
+### Phase 2: First Tools (separate repos)
+- `multiclaude-web` - React dashboard
+- `multiclaude-py` - Python client library
+- `multiclaude-slack` - Slack notifications
+
+### Phase 3: Community Growth
+- Accept registry PRs from anyone
+- Highlight featured tools
+- Create more templates (Go, Rust, etc.)
+- Add more categories as needed
+
+### Phase 4: Scale
+- Automated testing of registered tools
+- Version compatibility matrix
+- Tool discovery website
+- Integration with multiclaude CLI (`multiclaude tools list`)
+
+## The Brownian Ratchet for Tool Development
+
+Each tool repo gets its own multiclaude instance:
+
+```bash
+# For multiclaude-web
+multiclaude repo init https://github.com/aronchick/multiclaude-web
+multiclaude worker create "Implement AgentList component..."
+
+# For multiclaude-slack
+multiclaude repo init https://github.com/someone/multiclaude-slack
+multiclaude worker create "Implement slash command handler..."
+```
+
+Each tool evolves independently. PRs flow. CI validates. Merge-queue merges. Progress is permanent.
 
 ## Notes
 
-- **multiclaude ROADMAP says** web UIs are out of scope for the core project, which is why this is a separate repo
-- **The Socket API** is the primary integration point for full control
-- **The State File** is simpler but read-only
-- **All tools are vibe coded** - prioritize popular, LLM-friendly patterns
+- **This repo has no runtime dependencies** - It's documentation, YAML, and copy-paste code
+- **Tools don't import from here** - They copy the reference implementation
+- **Registry is the catalog** - Browse tools.yaml to find what exists
+- **Templates bootstrap new tools** - Fork/copy, don't depend
