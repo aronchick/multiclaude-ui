@@ -1,34 +1,14 @@
 /**
- * @multiclaude/core - Shared daemon communication library
+ * @multiclaude/core - Core library for communicating with multiclaude daemon.
  *
- * This package provides TypeScript types, Zod schemas, and utilities for
- * interacting with the multiclaude daemon. It enables external tools to:
+ * This package provides TypeScript types, Zod schemas, and client utilities
+ * for integrating with the multiclaude daemon via its Unix socket API
+ * and state file.
  *
- * - Read and validate state from ~/.multiclaude/state.json
- * - Watch for real-time state changes
- * - Communicate with the daemon via Unix socket
- * - Read inter-agent messages
- *
- * @example
- * ```typescript
- * import { StateReader, parseState, type State } from '@multiclaude/core';
- *
- * // Watch state file for changes
- * const reader = new StateReader();
- * reader.on('change', (state: State) => {
- *   console.log(`Active repos: ${Object.keys(state.repos).length}`);
- * });
- * await reader.start();
- *
- * // Or parse state directly
- * const state = parseState(JSON.parse(fs.readFileSync(statePath, 'utf8')));
- * ```
+ * @packageDocumentation
  */
 
-// ============================================================================
-// Types
-// ============================================================================
-
+// Re-export all types
 export type {
   AgentType,
   TrackMode,
@@ -40,25 +20,15 @@ export type {
   Agent,
   Repository,
   State,
-  Message,
   SocketRequest,
   SocketResponse,
-} from './types';
+  DaemonStatus,
+} from './types.js';
 
+export { isPersistentAgentType, defaultMergeQueueConfig, defaultPRShepherdConfig } from './types.js';
+
+// Re-export schemas
 export {
-  PERSISTENT_AGENT_TYPES,
-  TRANSIENT_AGENT_TYPES,
-  isPersistentAgent,
-  DEFAULT_MERGE_QUEUE_CONFIG,
-  DEFAULT_PR_SHEPHERD_CONFIG,
-} from './types';
-
-// ============================================================================
-// Schemas
-// ============================================================================
-
-export {
-  // Schemas
   AgentTypeSchema,
   TrackModeSchema,
   TaskStatusSchema,
@@ -69,38 +39,24 @@ export {
   AgentSchema,
   RepositorySchema,
   StateSchema,
-  MessageSchema,
-  SocketRequestSchema,
   SocketResponseSchema,
-  // Parse functions
+  DaemonStatusSchema,
   parseState,
   safeParseState,
   parseRepository,
-  safeParseRepository,
   parseAgent,
-  safeParseAgent,
-  parseMessage,
-  safeParseMessage,
-  parseTaskHistoryEntry,
-  safeParseTaskHistoryEntry,
   parseSocketResponse,
-  safeParseSocketResponse,
-} from './schemas';
+  parseDaemonStatus,
+} from './schemas.js';
 
-// ============================================================================
-// State Reader (file watching)
-// ============================================================================
+// Re-export state reader
+export { StateReader, defaultStatePath } from './state.js';
+export type { StateReaderEvents, StateReaderOptions } from './state.js';
 
-export { StateReader, type StateReaderOptions, type StateReaderEvents } from './state';
+// Re-export daemon client
+export { DaemonClient, DaemonError, defaultSocketPath } from './client.js';
+export type { DaemonClientOptions } from './client.js';
 
-// ============================================================================
-// Daemon Client (socket communication)
-// ============================================================================
-
-export { DaemonClient, type DaemonClientOptions } from './client';
-
-// ============================================================================
-// Message Reader
-// ============================================================================
-
-export { MessageReader, type MessageReaderOptions, type MessageReaderEvents } from './messages';
+// Re-export message reader
+export { MessageReader, MessageSchema, defaultMessagesPath } from './messages.js';
+export type { Message, MessageReaderEvents, MessageReaderOptions } from './messages.js';
