@@ -2,131 +2,97 @@
 
 ## Purpose
 
-**multiclaude-ui** is a monorepo of self-contained tools for multiclaude. Each tool lives in its own directory and can be:
-- Used directly from this repo
-- Forked/extracted as a standalone project
-- Vendored into other projects
-- Built as independent binaries
+**multiclaude-ui** is a monorepo of community tools for [multiclaude](https://github.com/dlorenc/multiclaude). The project provides:
+- A shared TypeScript library (`@multiclaude/core`) for daemon communication
+- A React web dashboard (`@multiclaude/web`) for monitoring agents
+- A foundation for community-contributed tools
 
 ### Goals
-- **Shared libraries**: Common code for daemon communication, types, utilities
-- **Self-contained tools**: Each tool directory works independently
-- **Extractable**: Any tool can be forked out as its own repo
-- **Polyglot**: TypeScript, Python, Go, Rust - whatever fits the tool
-- **Community contributions**: Easy to add new tools as new directories
+- **Shared library**: Common code for daemon communication, types, state watching
+- **Self-contained packages**: Each package works independently
+- **Extractable**: Any package can be forked out as its own repo
+- **Community contributions**: Easy to add new tools as new packages
+- **Single command**: `npm install && npm run web` to start dashboard
 
 ### Repository Structure
 ```
 multiclaude-ui/
 ├── multiclaude/              # READ-ONLY submodule (source of truth)
+│   ├── internal/state/       # Go types (state.go)
+│   └── docs/extending/       # Socket API, state file docs
 │
-├── lib/                      # Shared libraries
-│   ├── typescript/           # @multiclaude/core - npm package
+├── packages/
+│   ├── core/                 # @multiclaude/core - shared library
 │   │   ├── src/
-│   │   │   ├── types.ts     # Types from multiclaude/internal/state/state.go
-│   │   │   ├── client.ts    # DaemonClient (socket communication)
-│   │   │   ├── state.ts     # StateReader (file watching)
-│   │   │   └── index.ts
+│   │   │   ├── types.ts      # TypeScript types from state.go
+│   │   │   ├── schemas.ts    # Zod validation schemas
+│   │   │   ├── client.ts     # DaemonClient (socket API)
+│   │   │   ├── state.ts      # StateReader (file watcher)
+│   │   │   ├── messages.ts   # MessageReader
+│   │   │   └── index.ts      # Public exports
 │   │   ├── package.json
 │   │   └── tsconfig.json
 │   │
-│   ├── python/               # multiclaude-lib - pip package
-│   │   ├── src/multiclaude/
-│   │   │   ├── types.py     # Pydantic models
-│   │   │   ├── client.py    # DaemonClient
-│   │   │   └── state.py     # StateReader
-│   │   └── pyproject.toml
-│   │
-│   └── go/                   # github.com/aronchick/multiclaude-ui/lib/go
-│       ├── types.go
-│       ├── client.go
-│       └── go.mod
-│
-├── tools/                    # Self-contained tools
-│   ├── web/                  # React dashboard
-│   │   ├── src/
-│   │   ├── package.json     # Depends on ../../lib/typescript
-│   │   └── README.md
-│   │
-│   ├── slack/                # Slack bot
-│   │   ├── src/
-│   │   ├── package.json
-│   │   └── README.md
-│   │
-│   ├── cli-tui/              # Terminal UI
-│   │   ├── src/
-│   │   └── package.json
-│   │
-│   ├── vscode/               # VS Code extension
-│   │   ├── src/
-│   │   └── package.json
-│   │
-│   ├── prometheus/           # Prometheus exporter
-│   │   ├── main.go
-│   │   └── go.mod
-│   │
-│   └── discord/              # Discord bot
+│   └── web/                  # @multiclaude/web - React dashboard
 │       ├── src/
-│       └── pyproject.toml
+│       │   ├── App.tsx
+│       │   └── components/
+│       │       ├── AgentList.tsx
+│       │       ├── TaskHistory.tsx
+│       │       └── MessageFeed.tsx
+│       ├── package.json
+│       ├── vite.config.ts
+│       └── tailwind.config.js
 │
-├── templates/                # Scaffolds for new tools
-│   ├── typescript/
-│   ├── python/
-│   └── go/
+├── docs/
+│   └── CONTRIBUTING.md       # How to add new packages
 │
-├── scripts/                  # Automation
-│   ├── sync-types.sh        # Update types from submodule
-│   ├── new-tool.sh          # Create new tool from template
-│   └── extract-tool.sh      # Extract tool as standalone repo
+├── .github/workflows/
+│   └── ci.yml                # Build, lint, test CI
 │
-└── docs/
-    ├── INTEGRATION.md
-    └── CONTRIBUTING.md
+├── package.json              # Workspace root
+├── turbo.json                # Build orchestration
+└── tsconfig.json             # Base TypeScript config
 ```
 
 ## Philosophy
 
 ### Self-Contained but Shared
 
-Each tool in `tools/` is designed to be:
+Each package in `packages/` is designed to be:
 
-1. **Runnable from monorepo**: `cd tools/web && npm run dev`
-2. **Extractable**: `./scripts/extract-tool.sh web` creates standalone repo
-3. **Forkable**: Clone repo, delete other tools, keep what you need
-4. **Vendorable**: Copy `lib/typescript/` into your project
+1. **Runnable from monorepo**: `npm run web` (from root)
+2. **Extractable**: Fork repo, delete other packages, keep what you need
+3. **Forkable**: Clone repo, vendor @multiclaude/core into your project
+4. **Minimal**: Only essential dependencies
 
-### Library Philosophy
+### Package Independence
 
-The `lib/` packages are:
-- **Published to registries**: npm, PyPI for easy consumption
-- **Vendorable**: Copy the code if you don't want the dependency
-- **Minimal dependencies**: Only what's absolutely necessary
-- **Type-safe**: Full TypeScript/Pydantic/Go types
-
-### Tool Independence
-
-Each tool should:
-- Have its own `package.json`/`pyproject.toml`/`go.mod`
-- Be buildable independently: `cd tools/web && npm run build`
-- Have its own CI job
+Each package should:
+- Have its own `package.json`
+- Be buildable independently via Turborepo
 - Include a README with standalone instructions
 - Work if extracted to its own repo
 
-## Shared Libraries
+## Packages
 
-### lib/typescript (@multiclaude/core)
+### packages/core (@multiclaude/core)
+
+The shared library for daemon communication.
 
 ```typescript
-// Published to npm as @multiclaude/core
 import { DaemonClient, StateReader, Agent, Repository } from '@multiclaude/core';
 
+// Send commands to daemon
 const client = new DaemonClient();
 const status = await client.send('status');
 
+// Watch state changes
 const reader = new StateReader();
 reader.on('change', (state) => {
   console.log('Agents:', Object.keys(state.repos['myrepo'].agents));
 });
+reader.start();
 ```
 
 **Files:**
@@ -136,144 +102,69 @@ reader.on('change', (state) => {
 - `state.ts` - StateReader for watching state.json
 - `messages.ts` - MessageReader for watching message files
 
-### lib/python (multiclaude-lib)
+### packages/web (@multiclaude/web)
 
-```python
-# pip install multiclaude-lib
-from multiclaude import DaemonClient, StateReader, Agent
+React dashboard for monitoring agents.
 
-client = DaemonClient()
-status = client.send('status')
-
-reader = StateReader()
-for state in reader.watch():
-    print(f"Agents: {list(state.repos['myrepo'].agents.keys())}")
-```
-
-**Files:**
-- `types.py` - Pydantic models matching Go types
-- `client.py` - DaemonClient for socket communication
-- `state.py` - StateReader using watchdog
-
-### lib/go
-
-```go
-// import "github.com/aronchick/multiclaude-ui/lib/go"
-import mclib "github.com/aronchick/multiclaude-ui/lib/go"
-
-client := mclib.NewClient()
-status, _ := client.Send("status", nil)
-
-reader := mclib.NewStateReader()
-reader.Watch(func(state *mclib.State) {
-    fmt.Println("Agents:", state.Repos["myrepo"].Agents)
-})
-```
-
-## Tools
-
-### tools/web - React Dashboard
-
-**Tech**: React, Vite, Tailwind, TanStack Query
-**Purpose**: Visual dashboard for monitoring and managing agents
+**Tech**: React, Vite, Tailwind CSS
+**Purpose**: Visual dashboard for monitoring agents
 **Features**:
-- Real-time agent status
-- Task history and PR tracking
-- Spawn workers from UI
-- Message feed
+- Real-time agent status (AgentList component)
+- Task history and PR tracking (TaskHistory component)
+- Inter-agent message feed (MessageFeed component)
+- Repo selection sidebar
 
-### tools/slack - Slack Bot
+**Run**: `npm run web` from repo root
 
-**Tech**: TypeScript, Bolt.js
-**Purpose**: Slack notifications and commands
-**Features**:
-- `/spawn <task>` - Spawn a worker
-- `/status` - Get agent status
-- Notifications on PR created/merged
-- Thread updates for long-running tasks
+## Future Packages (Ideas)
 
-### tools/cli-tui - Terminal UI
+These can be added as new packages in `packages/`:
 
-**Tech**: TypeScript, Ink or Blessed
-**Purpose**: Rich terminal interface
-**Features**:
-- Split panes for multiple agents
-- Real-time log streaming
-- Keyboard navigation
-- Works over SSH
-
-### tools/vscode - VS Code Extension
-
-**Tech**: TypeScript, VS Code API
-**Purpose**: IDE integration
-**Features**:
-- Status bar with agent count
-- Spawn workers from command palette
-- Side panel with agent list
-- Inline PR status
-
-### tools/prometheus - Metrics Exporter
-
-**Tech**: Go
-**Purpose**: Prometheus metrics for observability
-**Features**:
-- Agent count by type/status
-- Task completion rate
-- PR merge latency
-- Message queue depth
-
-### tools/discord - Discord Bot
-
-**Tech**: Python, discord.py
-**Purpose**: Discord notifications and commands
-**Features**:
-- Similar to Slack bot
-- Rich embeds for status
-- Thread per task
+| Package | Description |
+|---------|-------------|
+| `slack` | Slack bot with /spawn and /status commands |
+| `discord` | Discord bot with rich embeds |
+| `cli-tui` | Terminal UI with Ink |
+| `vscode` | VS Code extension |
+| `prometheus` | Prometheus metrics exporter |
+| `raycast` | Raycast extension |
 
 ## Development Workflow
 
-### Working on a Tool
+### Quick Start
 
 ```bash
-# Install dependencies
-npm install  # or: cd tools/web && npm install
+# Clone with submodule
+git clone --recursive https://github.com/aronchick/multiclaude-ui
+cd multiclaude-ui
 
-# Run a specific tool
-cd tools/web && npm run dev
-
-# Build all
-npm run build
-
-# Test all
-npm test
+# Install and run dashboard
+npm install
+npm run web
 ```
 
-### Adding a New Tool
+Then open http://localhost:3000
+
+### Common Commands
 
 ```bash
-# Use the template generator
-./scripts/new-tool.sh --name mytool --lang typescript
-
-# This creates tools/mytool/ with:
-# - Package config
-# - Dependency on lib/typescript
-# - Basic structure
-# - CI job
+npm install          # Install all dependencies
+npm run build        # Build all packages (Turborepo)
+npm run web          # Run web dashboard
+npm run typecheck    # Type check all packages
+npm run lint         # Lint all packages
+npm test             # Run all tests
 ```
 
-### Extracting a Tool
+### Adding a New Package
 
-```bash
-# Create standalone repo from a tool
-./scripts/extract-tool.sh web ~/multiclaude-web
+1. Create `packages/mytool/` directory
+2. Add `package.json` with `@multiclaude/core` as workspace dependency
+3. Add `tsconfig.json` extending root config
+4. Implement your package
+5. Submit PR
 
-# Result: ~/multiclaude-web/ with:
-# - Tool code
-# - Vendored lib/typescript (or npm dependency)
-# - Standalone package.json
-# - Its own git history
-```
+See `docs/CONTRIBUTING.md` for detailed instructions.
 
 ## Build System
 
@@ -281,41 +172,24 @@ npm test
 
 - **npm workspaces** for package management
 - **Turborepo** for build orchestration and caching
-- **TypeScript project references** for fast builds
+- **TypeScript strict mode** for type safety
 
 ### Package Layout
 
 ```json
 // Root package.json
 {
-  "workspaces": [
-    "lib/typescript",
-    "tools/*"
-  ]
-}
-```
-
-```json
-// turbo.json
-{
-  "pipeline": {
-    "build": {
-      "dependsOn": ["^build"]
-    },
-    "test": {
-      "dependsOn": ["build"]
-    }
-  }
+  "workspaces": ["packages/*"]
 }
 ```
 
 ### CI Strategy
 
-Each tool gets its own CI job that:
-1. Builds lib/typescript first
-2. Builds the tool
-3. Runs tool-specific tests
-4. Can publish independently
+Single CI workflow that:
+1. Checks out repo with submodule
+2. Installs dependencies
+3. Builds all packages (core first via Turborepo)
+4. Runs typecheck, lint, and tests
 
 ## Types (from multiclaude/internal/state/state.go)
 
@@ -388,34 +262,35 @@ type TaskStatus = 'open' | 'merged' | 'closed' | 'no-pr' | 'failed' | 'unknown';
 
 ## Keeping Types in Sync
 
+When the multiclaude daemon adds new types:
+
 ```bash
-# Update submodule
+# Update submodule to latest
 git submodule update --remote multiclaude
 
-# Regenerate types in all libraries
-./scripts/sync-types.sh
+# Manually update packages/core/src/types.ts to match
+# multiclaude/internal/state/state.go
 
-# This updates:
-# - lib/typescript/src/types.ts
-# - lib/python/src/multiclaude/types.py
-# - lib/go/types.go
+# Run build to verify
+npm run build
 ```
 
 ## Contributing
 
-### Adding a Tool
-1. Run `./scripts/new-tool.sh --name mytool --lang typescript`
-2. Implement in `tools/mytool/`
-3. Add CI job in `.github/workflows/`
-4. Submit PR
+### Adding a Package
+1. Create `packages/mytool/` directory
+2. Add `package.json` depending on `@multiclaude/core`
+3. Implement your package
+4. Run `npm run build && npm run lint`
+5. Submit PR
 
-### Modifying Libraries
-1. Make changes in `lib/<lang>/`
-2. Update all tools that depend on it
-3. Run full test suite
+### Modifying Core Library
+1. Make changes in `packages/core/src/`
+2. Update packages that depend on it if needed
+3. Run full test suite: `npm test`
 4. Submit PR
 
 ### Extracting for Standalone Use
 1. Fork this repo
-2. Delete tools you don't need
-3. Or use `./scripts/extract-tool.sh` for clean extraction
+2. Delete packages you don't need
+3. Vendor `@multiclaude/core` or keep as dependency
