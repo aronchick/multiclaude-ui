@@ -1,6 +1,6 @@
 import { AgentList } from './components/AgentList';
 import { MessageFeed } from './components/MessageFeed';
-import { TaskHistory } from './components/TaskHistory';
+import { TaskDashboard } from './components/TaskDashboard';
 import { useMulticlaude, useDaemonStatus } from './hooks/useMulticlaude';
 import { useDaemonCommands } from './hooks/useDaemonCommands';
 import { useState, useEffect } from 'react';
@@ -240,9 +240,11 @@ function App() {
               <MessageFeed repoName={currentRepo} />
             </div>
 
-            <TaskHistory
+            <TaskDashboard
               history={state?.repos[currentRepo]?.task_history ?? []}
+              agents={currentAgents}
               repoName={currentRepo}
+              onRefresh={refresh}
             />
           </div>
         )}

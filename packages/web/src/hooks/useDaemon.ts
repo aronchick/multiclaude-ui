@@ -80,13 +80,42 @@ export function useDaemon() {
     [sendCommand]
   );
 
+  const spawnWorker = useCallback(
+    (repo: string, task: string, name?: string) =>
+      sendCommand('add_agent', {
+        repo,
+        name: name || generateWorkerName(),
+        type: 'worker',
+        task,
+      }),
+    [sendCommand]
+  );
+
   return {
     sendCommand,
     killAgent,
     restartAgent,
     stopRepo,
     triggerCleanup,
+    spawnWorker,
     loading,
     error,
   };
+}
+
+/** Generate a random worker name (adjective-animal) */
+function generateWorkerName(): string {
+  const adjectives = [
+    'swift', 'clever', 'brave', 'keen', 'bold', 'calm', 'eager', 'fair',
+    'glad', 'happy', 'jolly', 'kind', 'lively', 'merry', 'nice', 'proud',
+    'quick', 'ready', 'silly', 'witty', 'zesty', 'bright', 'cool', 'daring',
+  ];
+  const animals = [
+    'fox', 'owl', 'bear', 'wolf', 'deer', 'hawk', 'lion', 'seal',
+    'duck', 'frog', 'goat', 'hare', 'lynx', 'mole', 'newt', 'orca',
+    'puma', 'robin', 'swan', 'tiger', 'whale', 'zebra', 'eagle', 'otter',
+  ];
+  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const animal = animals[Math.floor(Math.random() * animals.length)];
+  return `${adj}-${animal}`;
 }
