@@ -23,8 +23,9 @@ module.exports = {
   ignorePatterns: ['dist', 'node_modules', '*.js'],
   overrides: [
     {
-      // Type-aware linting for packages with tsconfig
+      // Type-aware linting for packages with tsconfig (excluding tests)
       files: ['packages/*/src/**/*.ts', 'packages/*/src/**/*.tsx'],
+      excludedFiles: ['**/*.test.ts', '**/*.spec.ts', '**/__tests__/**'],
       parserOptions: {
         project: ['./packages/*/tsconfig.json'],
         tsconfigRootDir: __dirname,
