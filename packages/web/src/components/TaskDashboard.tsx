@@ -26,7 +26,7 @@ export function TaskDashboard({ history, agents, repoName, onRefresh }: TaskDash
       .filter(([, agent]) => agent.type === 'worker' && agent.pid > 0 && !agent.ready_for_cleanup)
       .map(([name, agent]) => ({
         name,
-        task: agent.task || 'Working...',
+        task: agent.task ?? 'Working...',
         created_at: agent.created_at,
         status: 'in-progress' as const,
       }));

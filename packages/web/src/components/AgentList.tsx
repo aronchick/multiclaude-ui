@@ -45,7 +45,7 @@ export function AgentList({ agents, repoName, onStopAll }: AgentListProps) {
     try {
       await killAgent(repoName, name);
     } catch (err) {
-      alert(`Failed to kill agent: ${err}`);
+      alert(`Failed to kill agent: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setKillingAgent(null);
     }
@@ -57,7 +57,7 @@ export function AgentList({ agents, repoName, onStopAll }: AgentListProps) {
     try {
       await stopRepo(repoName);
     } catch (err) {
-      alert(`Failed to stop repo: ${err}`);
+      alert(`Failed to stop repo: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setStoppingRepo(false);
     }
@@ -67,7 +67,7 @@ export function AgentList({ agents, repoName, onStopAll }: AgentListProps) {
     <div className="bg-white rounded-lg shadow p-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">Agents</h3>
-        {agentEntries.length > 0 && (onStopAll || true) && (
+        {agentEntries.length > 0 && (onStopAll ?? true) && (
           <button
             onClick={onStopAll ?? handleStopAll}
             disabled={loading || stoppingRepo}
@@ -97,7 +97,7 @@ export function AgentList({ agents, repoName, onStopAll }: AgentListProps) {
                   <span className="text-xs text-gray-500">{getStatusText(agent)}</span>
                   {agent.pid > 0 && (
                     <button
-                      onClick={() => handleKillAgent(name)}
+                      onClick={() => { void handleKillAgent(name); }}
                       disabled={loading || killingAgent === name}
                       className="text-xs px-2 py-0.5 bg-red-50 text-red-600 rounded
                                  hover:bg-red-100 disabled:opacity-50 transition-colors"

@@ -31,7 +31,7 @@ export function SpawnWorker({ repoName, onSpawned }: SpawnWorkerProps) {
       setIsExpanded(false);
       onSpawned?.();
     } catch (err) {
-      alert(`Failed to spawn worker: ${err}`);
+      alert(`Failed to spawn worker: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 
@@ -69,7 +69,7 @@ export function SpawnWorker({ repoName, onSpawned }: SpawnWorkerProps) {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={(e) => { void handleSubmit(e); }}>
         <div className="mb-4">
           <label htmlFor="task" className="block text-sm font-medium text-gray-700 mb-1">
             Task Description

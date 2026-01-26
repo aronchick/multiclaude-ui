@@ -244,7 +244,7 @@ function App() {
               history={state?.repos[currentRepo]?.task_history ?? []}
               agents={currentAgents}
               repoName={currentRepo}
-              onRefresh={refresh}
+              onRefresh={() => { void refresh(); }}
             />
           </div>
         )}

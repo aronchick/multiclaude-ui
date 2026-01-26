@@ -34,10 +34,10 @@ export function useDaemon() {
           body: JSON.stringify({ command, args }),
         });
 
-        const data: DaemonResponse = await res.json();
+        const data = (await res.json()) as DaemonResponse;
 
         if (!res.ok || data.error) {
-          throw new Error(data.error || `HTTP ${res.status}`);
+          throw new Error(data.error ?? `HTTP ${res.status}`);
         }
 
         return data.data;
@@ -84,7 +84,7 @@ export function useDaemon() {
     (repo: string, task: string, name?: string) =>
       sendCommand('add_agent', {
         repo,
-        name: name || generateWorkerName(),
+        name: name ?? generateWorkerName(),
         type: 'worker',
         task,
       }),
