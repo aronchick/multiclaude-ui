@@ -6,12 +6,13 @@ import { ExpandableText } from './ExpandableText';
 interface AgentListProps {
   agents: Record<string, Agent>;
   repoName: string;
+  onStopAll?: () => void;
 }
 
 /**
  * AgentList displays all agents for a repository with status indicators and controls.
  */
-export function AgentList({ agents, repoName }: AgentListProps) {
+export function AgentList({ agents, repoName, onStopAll }: AgentListProps) {
   const agentEntries = Object.entries(agents);
   const { killAgent, stopRepo, loading } = useDaemon();
   const [killingAgent, setKillingAgent] = useState<string | null>(null);
@@ -66,9 +67,9 @@ export function AgentList({ agents, repoName }: AgentListProps) {
     <div className="bg-white rounded-lg shadow p-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">Agents</h3>
-        {agentEntries.length > 0 && (
+        {agentEntries.length > 0 && (onStopAll || true) && (
           <button
-            onClick={handleStopAll}
+            onClick={onStopAll ?? handleStopAll}
             disabled={loading || stoppingRepo}
             className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200
                        disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
