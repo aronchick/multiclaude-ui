@@ -3,47 +3,76 @@ import react from '@vitejs/plugin-react';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { createConnection } from 'net';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import type { Plugin } from 'vite';
 import type { IncomingMessage, ServerResponse } from 'http';
 
+const execAsync = promisify(exec);
 const MULTICLAUDE_DIR = join(homedir(), '.multiclaude');
 const STATE_PATH = join(MULTICLAUDE_DIR, 'state.json');
-const SOCKET_PATH = join(MULTICLAUDE_DIR, 'daemon.sock');
 
 /**
- * Send a command to the multiclaude daemon via Unix socket.
+ * Execute a multiclaude CLI command.
  */
-function sendDaemonCommand(command: string, args?: Record<string, unknown>): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    if (!existsSync(SOCKET_PATH)) {
-      reject(new Error('Daemon not running (socket not found)'));
-      return;
+async function runMulticlaudeCommand(args: string[]): Promise<{ stdout: string; stderr: string }> {
+  const cmd = `multiclaude ${args.join(' ')}`;
+  try {
+    const result = await execAsync(cmd, { timeout: 30000 });
+    return result;
+  } catch (err) {
+    const error = err as { stdout?: string; stderr?: string; message?: string };
+    throw new Error(error.stderr || error.message || 'Command failed');
+  }
+}
+
+/**
+ * Map API commands to multiclaude CLI commands.
+ */
+async function handleDaemonCommand(
+  command: string,
+  args?: Record<string, unknown>
+): Promise<unknown> {
+  switch (command) {
+    case 'remove_agent': {
+      const repo = args?.repo as string;
+      const name = args?.name as string;
+      if (!repo || !name) throw new Error('Missing repo or name');
+      await runMulticlaudeCommand(['worker', 'rm', name, '--repo', repo]);
+      return { success: true, message: `Removed ${name}` };
     }
 
-    const client = createConnection(SOCKET_PATH);
-    const request = JSON.stringify({ command, args }) + '\n';
-    let data = '';
+    case 'add_agent': {
+      const repo = args?.repo as string;
+      const task = args?.task as string;
+      if (!repo || !task) throw new Error('Missing repo or task');
+      const cliArgs = ['worker', 'create', `"${task}"`, '--repo', repo];
+      await runMulticlaudeCommand(cliArgs);
+      return { success: true };
+    }
 
-    client.on('connect', () => client.write(request));
-    client.on('data', (chunk) => {
-      data += chunk.toString();
-      try {
-        const response = JSON.parse(data);
-        client.end();
-        if (!response.success) {
-          reject(new Error(response.error || 'Command failed'));
-        } else {
-          resolve(response.data);
-        }
-      } catch {
-        // Incomplete JSON, wait for more
-      }
-    });
-    client.on('error', reject);
-    client.on('timeout', () => reject(new Error('Socket timeout')));
-    client.setTimeout(10000);
-  });
+    case 'trigger_cleanup': {
+      await runMulticlaudeCommand(['cleanup']);
+      return { success: true };
+    }
+
+    case 'list_agents': {
+      const repo = args?.repo as string;
+      if (!repo) throw new Error('Missing repo');
+      // Read from state.json instead of CLI
+      const state = JSON.parse(readFileSync(STATE_PATH, 'utf-8'));
+      const agents = state.repos?.[repo]?.agents || {};
+      return { agents };
+    }
+
+    case 'stop': {
+      await runMulticlaudeCommand(['stop-all']);
+      return { success: true };
+    }
+
+    default:
+      throw new Error(`Unknown command: ${command}`);
+  }
 }
 
 /**
@@ -120,7 +149,7 @@ function multiclaueApiPlugin(): Plugin {
             return;
           }
 
-          const result = await sendDaemonCommand(command, args);
+          const result = await handleDaemonCommand(command, args);
           res.end(JSON.stringify({ success: true, data: result }));
         } catch (err) {
           res.statusCode = 500;
