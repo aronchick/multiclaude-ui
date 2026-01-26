@@ -20,10 +20,10 @@ export function useMulticlaude() {
     try {
       const res = await fetch('/api/state');
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `HTTP ${res.status}`);
+        const errData = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(errData.error ?? `HTTP ${res.status}`);
       }
-      const data = await res.json();
+      const data = (await res.json()) as State;
       setState(data);
       setError(null);
     } catch (err) {
@@ -34,9 +34,9 @@ export function useMulticlaude() {
   }, []);
 
   useEffect(() => {
-    refresh();
+    void refresh();
     // Auto-refresh every 2 seconds for live updates
-    intervalRef.current = window.setInterval(refresh, REFRESH_INTERVAL);
+    intervalRef.current = window.setInterval(() => void refresh(), REFRESH_INTERVAL);
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -70,8 +70,8 @@ export function useDaemonStatus() {
   }, []);
 
   useEffect(() => {
-    checkConnection();
-    const interval = setInterval(() => checkConnection(), 30000);
+    void checkConnection();
+    const interval = setInterval(() => void checkConnection(), 30000);
     return () => clearInterval(interval);
   }, [checkConnection]);
 
