@@ -69,7 +69,7 @@ function App() {
             </span>
           </div>
           <button
-            onClick={refresh}
+            onClick={() => void refresh()}
             disabled={loading}
             className="mt-2 text-xs text-gray-400 hover:text-white transition-colors disabled:opacity-50"
           >
